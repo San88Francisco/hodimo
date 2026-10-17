@@ -19,7 +19,11 @@ import {
  * publishable-ключем) не бачить нічого. Наш API ходить як власник таблиць, на нього RLS не діє.
  */
 
-export const USER_ROLES = ["user", "admin"] as const;
+/**
+ * user — записується на події; organizer — ще й створює їх (право видає адмін);
+ * admin — керує всім. Блокування — окремий прапорець поверх будь-якої ролі.
+ */
+export const USER_ROLES = ["user", "organizer", "admin"] as const;
 
 export const userRole = pgEnum("user_role", USER_ROLES);
 
@@ -45,7 +49,7 @@ export const users = pgTable("users", {
   ...timestamps,
 }).enableRLS();
 
-/** Категорії веде адмін. Архівна категорія зникає з форми й фільтрів, але старі вилазки її зберігають. */
+/** Категорії веде адмін. Архівна категорія зникає з форми й фільтрів, але старі події її зберігають. */
 export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 40 }).notNull().unique(),

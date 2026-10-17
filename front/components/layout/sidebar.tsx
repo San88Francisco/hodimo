@@ -4,16 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 
+import { Logo } from "@/components/brand/logo";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
 import { buttonVariants } from "@/components/ui/button";
-import { accessOf, type Me } from "@/lib/meetups";
+import { accessOf, canCreateMeetups, type Me } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 const ACCESS_LABEL = {
   guest: "Гість",
   blocked: "Заблоковано",
   user: "Учасник",
+  organizer: "Організатор",
   admin: "Адмін",
 } as const;
 
@@ -23,17 +25,8 @@ export function Sidebar({ me }: { me: Me | null }) {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col gap-8 border-r border-border bg-sidebar px-4 py-6 lg:flex">
-      <Link
-        href="/"
-        className="flex items-center gap-2 px-2 text-lg font-semibold tracking-tight outline-none"
-      >
-        <span
-          className="grid size-8 place-items-center rounded-lg bg-primary text-base text-primary-foreground"
-          aria-hidden
-        >
-          В
-        </span>
-        Вилазки
+      <Link href="/" aria-label="Ходімо — на головну" className="px-1 outline-none">
+        <Logo className="text-xl" markClassName="size-10" />
       </Link>
 
       <nav aria-label="Головна навігація" className="flex-1">
@@ -65,7 +58,7 @@ export function Sidebar({ me }: { me: Me | null }) {
       </nav>
 
       <div className="flex flex-col gap-4">
-        {(access === "user" || access === "admin") && (
+        {canCreateMeetups(access) && (
           <Link
             href="/meetups/new"
             className={cn(
@@ -74,12 +67,15 @@ export function Sidebar({ me }: { me: Me | null }) {
             )}
           >
             <Plus className="size-4" aria-hidden />
-            Створити вилазку
+            Створити подію
           </Link>
         )}
 
         {me ? (
-          <div className="flex items-center gap-3 rounded-xl bg-secondary/50 p-3">
+          <Link
+            href={`/users/${me.id}`}
+            className="flex items-center gap-3 rounded-xl bg-secondary/50 p-3 outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <PersonAvatar person={me} className="size-9 text-sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{me.firstName}</p>
@@ -87,10 +83,10 @@ export function Sidebar({ me }: { me: Me | null }) {
                 {ACCESS_LABEL[access]}
               </p>
             </div>
-          </div>
+          </Link>
         ) : (
           <p className="px-2 text-xs leading-relaxed text-muted-foreground">
-            Ти переглядаєш як гість. Відкрий застосунок у Telegram, щоб записуватись на вилазки.
+            Ти переглядаєш як гість. Відкрий застосунок у Telegram, щоб записуватись на події.
           </p>
         )}
       </div>

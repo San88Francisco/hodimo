@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, gte, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, schema } from "@/db";
@@ -6,7 +6,7 @@ import type { User } from "@/db/schema";
 import { isAdmin } from "@/lib/auth";
 import { requireActiveCategory, toCategoryDto } from "@/lib/categories";
 import { env } from "@/lib/env";
-import { conflict, forbidden, notFound } from "@/lib/http";
+import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
 
 const { categories, meetups, meetupParticipants: participants, users } = schema;
 
@@ -42,13 +42,17 @@ export const ListMeetupsQuerySchema = z.object({
   date: z.enum(["today", "weekend"]).optional(),
   category: z.uuid().optional(),
   city: z.string().trim().min(1).max(80).optional(),
+  /** Події, які організовує ця людина (публічно). */
+  organizer: z.uuid().optional(),
+  /** `me` — куди записаний сам глядач, без власних подій (лише для себе). */
+  joined: z.literal("me").optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
 
 // ---------- Права ----------
 
-/** Організатор своєї вилазки або адмін; заблоковані нічим не керують. */
+/** Організатор своєї події або адмін; заблоковані нічим не керують. */
 function canManage(viewer: User | null, organizerId: string) {
   if (!viewer || viewer.isBlocked) return false;
   return viewer.id === organizerId || viewer.role === "admin";
@@ -138,6 +142,11 @@ export async function listMeetups(
   if (query.date) conditions.push(dateFilter(query.date));
   if (query.category) conditions.push(eq(meetups.categoryId, query.category));
   if (query.city) conditions.push(sql`lower(${meetups.city}) = lower(${query.city})`);
+  if (query.organizer) conditions.push(eq(meetups.organizerId, query.organizer));
+  if (query.joined) {
+    if (!viewer) throw unauthorized();
+    conditions.push(ne(meetups.organizerId, viewer.id), isJoinedBy(viewer.id));
+  }
 
   const rows = await selectMeetups(viewer)
     .where(and(...conditions))
@@ -152,10 +161,10 @@ export async function listMeetups(
   };
 }
 
-/** Деталі вилазки. Список учасників бачать лише організатор і адміни. */
+/** Деталі події. Список учасників бачать лише організатор і адміни. */
 export async function getMeetup(id: string, viewer: User | null) {
   const [row] = await selectMeetups(viewer).where(eq(meetups.id, id)).limit(1);
-  if (!row) throw notFound("Вилазку не знайдено");
+  if (!row) throw notFound("Подію не знайдено");
   const dto = toDto(row, viewer);
 
   const canSeeParticipants =
@@ -189,10 +198,10 @@ export async function createMeetup(user: User, input: z.infer<typeof CreateMeetu
 
 type Tx = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
-/** Блокує рядок вилазки до кінця транзакції, щоб лічильник місць не «поплив». */
+/** Блокує рядок події до кінця транзакції, щоб лічильник місць не «поплив». */
 async function lockMeetup(tx: Tx, id: string) {
   const [meetup] = await tx.select().from(meetups).where(eq(meetups.id, id)).for("update");
-  if (!meetup) throw notFound("Вилазку не знайдено");
+  if (!meetup) throw notFound("Подію не знайдено");
   const [taken] = await tx
     .select({ value: count() })
     .from(participants)
@@ -217,7 +226,7 @@ export async function updateMeetup(user: User, id: string, input: z.infer<typeof
 
 async function findMeetup(id: string) {
   const [meetup] = await db().select().from(meetups).where(eq(meetups.id, id));
-  if (!meetup) throw notFound("Вилазку не знайдено");
+  if (!meetup) throw notFound("Подію не знайдено");
   return meetup;
 }
 
@@ -230,7 +239,7 @@ export async function deleteMeetup(user: User, id: string) {
 export async function joinMeetup(user: User, id: string) {
   await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
-    if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Вилазка вже почалася");
+    if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Подія вже почалася");
 
     const [already] = await tx
       .select({ userId: participants.userId })
@@ -247,7 +256,7 @@ export async function joinMeetup(user: User, id: string) {
 export async function leaveMeetup(user: User, id: string) {
   const meetup = await findMeetup(id);
   if (meetup.organizerId === user.id) {
-    throw conflict("Організатор не може вийти — видали вилазку натомість");
+    throw conflict("Організатор не може вийти — видали подію натомість");
   }
   await db()
     .delete(participants)

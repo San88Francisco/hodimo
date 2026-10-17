@@ -253,7 +253,7 @@ export function MeetupForm({ categories, meetup }: { categories: Category[]; mee
     () => Boolean(defaults.date) && !quickDays.some((day) => day.key === defaults.date),
   );
 
-  // Архівна категорія вилазки, що редагується, лишається у виборі.
+  // Архівна категорія події, що редагується, лишається у виборі.
   const options =
     meetup && !categories.some((category) => category.id === meetup.category.id)
       ? [...categories, meetup.category]
@@ -495,7 +495,7 @@ export function MeetupForm({ categories, meetup }: { categories: Category[]; mee
           disabled={pending}
           className="h-12 w-full rounded-full px-6 text-base font-semibold lg:h-11 lg:w-auto lg:text-sm"
         >
-          {pending ? "Зберігаю…" : meetup ? "Зберегти зміни" : "Створити вилазку"}
+          {pending ? "Зберігаю…" : meetup ? "Зберегти зміни" : "Створити подію"}
         </Button>
       </BottomBar>
     </form>

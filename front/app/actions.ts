@@ -58,24 +58,31 @@ export async function signIn(initData: string): Promise<boolean> {
   return true;
 }
 
-/** Лише для розробки: вхід під тестовим користувачем без Telegram. */
-export async function devSignIn(person: { telegramId: number; firstName: string; username?: string }) {
+function assertDev() {
   if (process.env.NODE_ENV !== "development") throw new Error("Лише в режимі розробки");
+}
+
+/**
+ * Лише для розробки: вхід під тестовим користувачем без Telegram.
+ * Роль і блокування (якщо передані) API виставляє одразу. Лишаємось на тій самій сторінці.
+ */
+export async function devSignIn(person: api.DevPerson) {
+  assertDev();
   const { initData } = await api.devInitData(person);
   await setSession(initData);
   revalidatePath("/", "layout");
-  redirect("/");
 }
 
-export async function signOut() {
+/** Лише для розробки: стати гостем. */
+export async function devSignOut() {
+  assertDev();
   (await cookies()).delete(SESSION_COOKIE);
   revalidatePath("/", "layout");
-  redirect("/");
 }
 
-// ---------- Вилазки ----------
+// ---------- Події ----------
 
-/** Створює (id = null) або оновлює вилазку і переходить на її сторінку. */
+/** Створює (id = null) або оновлює подію і переходить на її сторінку. */
 export async function saveMeetup(id: string | null, payload: MeetupPayload): Promise<ActionError> {
   let meetup: Meetup;
   try {

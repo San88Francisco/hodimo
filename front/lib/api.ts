@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 
-import type { Category, Me, Meetup, MeetupPayload } from "@/lib/meetups";
+import type { Category, Me, Meetup, MeetupPayload, Profile, Role } from "@/lib/meetups";
 import { decodeSession, SESSION_COOKIE } from "@/lib/session";
 
 /** Викликається лише на сервері (Server Components і Server Actions). */
@@ -77,8 +77,27 @@ export function verifyInitData(initData: string) {
   return request<Me>("/me", { initData });
 }
 
-export function devInitData(person: { telegramId: number; firstName: string; username?: string }) {
+export type DevPerson = {
+  telegramId: number;
+  firstName: string;
+  username?: string;
+  role?: Role;
+  isBlocked?: boolean;
+};
+
+/** Лише для розробки (DEV_LOGIN=true на API). */
+export function devInitData(person: DevPerson) {
   return request<{ initData: string }>("/dev/init-data", json("POST", person));
+}
+
+/** Профіль будь-якого користувача; null, якщо такого немає. */
+export async function getProfile(id: string) {
+  try {
+    return await request<Profile>(`/users/${encodeURIComponent(id)}`);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return null;
+    throw error;
+  }
 }
 
 // ---------- Категорії ----------
@@ -100,14 +119,14 @@ export function deleteCategory(id: string) {
   return request<void>(`/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-// ---------- Вилазки ----------
+// ---------- Події ----------
 
 export function listMeetups(query: Record<string, string> = {}) {
   const params = new URLSearchParams({ limit: "50", ...query });
   return request<Page<Meetup>>(`/meetups?${params}`);
 }
 
-/** null, якщо вилазки немає (або id некоректний). */
+/** null, якщо події немає (або id некоректний). */
 export async function getMeetup(id: string) {
   try {
     return await request<Meetup>(`/meetups/${encodeURIComponent(id)}`);
@@ -139,9 +158,16 @@ export function leaveMeetup(id: string) {
 
 // ---------- Адмінка ----------
 
-export function listUsers(q?: string) {
-  const params = new URLSearchParams(q ? { q } : {});
-  return request<Page<Me>>(`/admin/users?${params}`);
+export const USER_FILTERS = ["all", "user", "organizer", "admin", "blocked"] as const;
+export type UserFilter = (typeof USER_FILTERS)[number];
+
+export function listUsers({
+  q,
+  filter = "all",
+  limit = 50,
+}: { q?: string; filter?: UserFilter; limit?: number } = {}) {
+  const params = new URLSearchParams({ filter, limit: String(limit), ...(q && { q }) });
+  return request<Page<Me> & { counts: Record<UserFilter, number> }>(`/admin/users?${params}`);
 }
 
 export function updateUser(id: string, patch: Partial<Pick<Me, "role" | "isBlocked">>) {

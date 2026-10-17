@@ -8,7 +8,7 @@ export default function NotFound() {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center">
       <SearchX className="size-10 text-muted-foreground" aria-hidden />
-      <h1 className="text-xl font-bold tracking-tight">Такої вилазки немає</h1>
+      <h1 className="text-xl font-bold tracking-tight">Такої події немає</h1>
       <p className="text-sm text-muted-foreground">
         Можливо, її видалили або посилання неправильне.
       </p>
@@ -16,7 +16,7 @@ export default function NotFound() {
         href="/"
         className={cn(buttonVariants({ size: "lg" }), "mt-2 h-10 rounded-full px-5 font-semibold")}
       >
-        До всіх вилазок
+        До всіх подій
       </Link>
     </div>
   );

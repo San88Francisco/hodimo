@@ -7,12 +7,27 @@ export type Person = {
   photoUrl: string | null;
 };
 
+export type Role = "user" | "organizer" | "admin";
+
 export type Me = Person & {
   telegramId: number;
   lastName: string | null;
-  role: "user" | "admin";
+  role: Role;
   isBlocked: boolean;
+  /** Адмін з ADMIN_TELEGRAM_IDS на сервері: в адмінці не змінюється. */
+  isRootAdmin: boolean;
   createdAt: string;
+};
+
+/** Публічний профіль. telegramId і isBlocked — null, якщо дивиться не сам користувач і не адмін. */
+export type Profile = Person & {
+  lastName: string | null;
+  role: Role;
+  createdAt: string;
+  stats: { organized: number; joined: number };
+  isSelf: boolean;
+  telegramId: number | null;
+  isBlocked: boolean | null;
 };
 
 export type Category = {
@@ -58,13 +73,29 @@ export type MeetupPayload = {
 };
 
 /** Що поточний відвідувач може робити. */
-export type Access = "guest" | "blocked" | "user" | "admin";
+export type Access = "guest" | "blocked" | Role;
 
 export function accessOf(me: Me | null): Access {
   if (!me) return "guest";
   if (me.isBlocked) return "blocked";
   return me.role;
 }
+
+/** Створювати події можуть організатори й адміни. */
+export function canCreateMeetups(access: Access) {
+  return access === "organizer" || access === "admin";
+}
+
+/** Чи може записуватись на події (будь-хто, хто увійшов і не заблокований). */
+export function canJoinMeetups(access: Access) {
+  return access === "user" || canCreateMeetups(access);
+}
+
+export const ROLE_LABEL: Record<Role, string> = {
+  user: "Учасник",
+  organizer: "Організатор",
+  admin: "Адмін",
+};
 
 // ---------- Кольори ----------
 
@@ -200,6 +231,22 @@ export function formatTime(iso: string) {
 export function formatFullDate(iso: string) {
   const date = new Date(iso);
   return `${capitalize(weekdayFormat.format(date))}, ${dayMonthFormat.format(date)}`;
+}
+
+const longDateFormat = new Intl.DateTimeFormat("uk-UA", {
+  timeZone: APP_TIMEZONE,
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/** «17 жовтня 2026 р.» */
+export function formatLongDate(iso: string) {
+  return longDateFormat.format(new Date(iso));
+}
+
+export function fullName(person: { firstName: string; lastName?: string | null }) {
+  return [person.firstName, person.lastName].filter(Boolean).join(" ");
 }
 
 /** «Субота, 18 жовтня» для `YYYY-MM-DD`. */

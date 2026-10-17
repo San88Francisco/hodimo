@@ -17,7 +17,7 @@ export default async function AdminCategoriesPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Адмінка" back={{ href: "/", label: "Усі вилазки" }} />
+      <PageHeader title="Адмінка" back={{ href: "/", label: "Усі події" }} />
       <AdminTabs active="/admin/categories" />
       <CategoryManager categories={categories} />
     </div>

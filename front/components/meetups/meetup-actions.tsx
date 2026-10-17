@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 const BIG = "h-12 rounded-full text-base font-semibold lg:h-11 lg:text-sm";
 
 /**
- * Нижня панель на сторінці вилазки. Що в ній — залежить від ролі:
+ * Нижня панель на сторінці події. Що в ній — залежить від ролі:
  * гість бачить підказку, учасник записується, організатор і адмін редагують і видаляють.
  */
 export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Access }) {
@@ -35,7 +35,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
       <BottomBar className="lg:border-t lg:border-border lg:pt-6">
         {error && <ErrorLine message={error} />}
         <div className="flex items-center gap-3">
-          <p className="min-w-0 flex-1 text-sm font-medium lg:flex-none">Видалити вилазку?</p>
+          <p className="min-w-0 flex-1 text-sm font-medium lg:flex-none">Видалити подію?</p>
           <Button
             variant="ghost"
             size="lg"

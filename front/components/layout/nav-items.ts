@@ -13,7 +13,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   {
     href: "/",
-    label: "Вилазки",
+    label: "Події",
     icon: CalendarDays,
     match: (pathname) => pathname === "/" || pathname.startsWith("/meetups"),
   },

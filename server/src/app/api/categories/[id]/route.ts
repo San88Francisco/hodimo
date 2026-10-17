@@ -13,7 +13,7 @@ export const PATCH = handler(async (request: Request, context: Context) => {
   return Response.json(await updateCategory(id, input));
 });
 
-/** Лише порожню категорію; із вилазками — 409, треба архівувати. */
+/** Лише порожню категорію; із подіями — 409, треба архівувати. */
 export const DELETE = handler(async (request: Request, context: Context) => {
   const id = await categoryId(context);
   await requireAdmin(request);

@@ -37,7 +37,7 @@ export function MeetupsFeed({
           <p className="max-w-xs text-sm text-muted-foreground">
             {filter.kind === "all"
               ? "Ще ніхто нічого не запланував."
-              : "За цим фільтром вилазок немає. Спробуй інший."}
+              : "За цим фільтром подій немає. Спробуй інший."}
             {canCreate && " Збери свою компанію!"}
           </p>
           {canCreate && (
@@ -45,7 +45,7 @@ export function MeetupsFeed({
               href="/meetups/new"
               className={cn(buttonVariants({ size: "lg" }), "mt-2 h-10 rounded-full px-5 font-semibold")}
             >
-              Створити вилазку
+              Створити подію
             </Link>
           )}
         </div>

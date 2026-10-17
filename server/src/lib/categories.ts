@@ -41,7 +41,7 @@ export async function listCategories({ includeArchived = false } = {}) {
   return rows.map(toCategoryDto);
 }
 
-/** Категорія, у яку можна додати вилазку. */
+/** Категорія, у яку можна додати подію. */
 export async function requireActiveCategory(id: string) {
   const [category] = await db().select().from(categories).where(eq(categories.id, id));
   if (!category || category.isArchived) throw conflict("Такої категорії немає — обери іншу");
@@ -88,7 +88,7 @@ export async function deleteCategory(id: string) {
     .from(meetups)
     .where(eq(meetups.categoryId, id));
   if (used && used.value > 0) {
-    throw conflict(`У категорії є вилазки (${used.value}) — її можна лише архівувати`);
+    throw conflict(`У категорії є події (${used.value}) — її можна лише архівувати`);
   }
   const deleted = await db().delete(categories).where(eq(categories.id, id)).returning();
   if (deleted.length === 0) throw notFound("Категорію не знайдено");

@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { MeetupForm } from "@/components/meetups/meetup-form";
 import { getMeetup, listCategories } from "@/lib/api";
 
-export const metadata: Metadata = { title: "Редагувати вилазку — Вилазки" };
+export const metadata: Metadata = { title: "Редагувати подію — Ходімо" };
 
 export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id]/edit">) {
   const { id } = await params;
@@ -17,8 +17,8 @@ export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        title="Редагувати вилазку"
-        back={{ href: `/meetups/${meetup.id}`, label: "До вилазки" }}
+        title="Редагувати подію"
+        back={{ href: `/meetups/${meetup.id}`, label: "До події" }}
       />
       <MeetupForm categories={categories} meetup={meetup} />
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, ShieldCheck, User, Wrench } from "lucide-react";
+import { ChevronRight, ShieldCheck, User, UserRound, Wrench } from "lucide-react";
 
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const ROLE: Record<Access, { label: string; tone: string }> = {
   guest: { label: "Гість", tone: "bg-secondary text-muted-foreground" },
   user: { label: "Учасник", tone: "bg-secondary text-foreground" },
+  organizer: { label: "Організатор", tone: "bg-sky-500/15 text-sky-300" },
   admin: { label: "Адмін", tone: "bg-primary/15 text-primary" },
   blocked: { label: "Заблоковано", tone: "bg-destructive/15 text-destructive" },
 };
@@ -94,17 +95,22 @@ export function UserMenu({ me }: { me: Me | null }) {
 
         {access === "guest" && (
           <p className="px-1 text-sm leading-relaxed text-muted-foreground">
-            Відкрий застосунок у Telegram, щоб записуватись і створювати вилазки.
+            Відкрий застосунок у Telegram, щоб записуватись і створювати події.
           </p>
         )}
         {access === "blocked" && (
           <p className="px-1 text-sm leading-relaxed text-muted-foreground">
-            Ти можеш переглядати вилазки, але не записуватись і не створювати.
+            Ти можеш переглядати події, але не записуватись і не створювати.
           </p>
         )}
 
-        {(access === "admin" || isDev) && (
+        {(me || isDev) && (
           <nav className="flex flex-col border-t border-border pt-2">
+            {me && (
+              <MenuLink href={`/users/${me.id}`} icon={UserRound}>
+                Мій профіль
+              </MenuLink>
+            )}
             {access === "admin" && (
               <MenuLink href="/admin/users" icon={ShieldCheck}>
                 Адмінка

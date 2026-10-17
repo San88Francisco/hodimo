@@ -2,12 +2,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { AccessNotice } from "@/components/layout/access-notice";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { PageHeader } from "@/components/layout/page-header";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MeetupsFeed } from "@/components/meetups/meetups-feed";
 import { buttonVariants } from "@/components/ui/button";
 import { getMe, listCategories, listMeetups } from "@/lib/api";
-import { accessOf, parseFeedFilter } from "@/lib/meetups";
+import { accessOf, canCreateMeetups, parseFeedFilter } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
@@ -16,13 +17,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const { items } = await listMeetups(query);
 
   const access = accessOf(me);
-  const canCreate = access === "user" || access === "admin";
+  const canCreate = canCreateMeetups(access);
 
   return (
     <>
       <PageHeader
-        title="Вилазки"
+        title="Події"
         description="Знайди компанію поруч — або збери свою за пару хвилин."
+        leading={<MobileNav me={me} />}
         action={
           <>
             {canCreate && (

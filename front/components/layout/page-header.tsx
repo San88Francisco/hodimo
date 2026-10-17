@@ -11,12 +11,15 @@ export function PageHeader({
   title,
   description,
   back,
+  leading,
   action,
   mobile = true,
 }: {
   title: string;
   description?: string;
   back?: { href: string; label: string };
+  /** Ліворуч від заголовка на мобільному (напр. бургер-меню), якщо немає «назад». */
+  leading?: React.ReactNode;
   action?: React.ReactNode;
   /** false — сторінка малює власну мобільну шапку (наприклад, поверх обкладинки). */
   mobile?: boolean;
@@ -38,6 +41,7 @@ export function PageHeader({
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
         )}
+        {!back && leading}
         <h1 className={cn("min-w-0 flex-1 truncate font-bold tracking-tight", back ? "text-base" : "text-xl")}>
           {title}
         </h1>

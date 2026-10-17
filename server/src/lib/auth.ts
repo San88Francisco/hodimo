@@ -7,9 +7,11 @@ import { validateInitData } from "@/lib/telegram";
 /**
  * Ролі:
  * - гість — немає заголовка Authorization: лише перегляд;
- * - user — відкрив Mini App у Telegram: записується, створює й керує своїми вилазками;
- * - admin — керує будь-якими вилазками й користувачами.
- * Заблокований користувач бачить усе, але нічого не може змінювати.
+ * - user — відкрив Mini App у Telegram: записується на події;
+ * - organizer — ще й створює події й керує своїми (право видає адмін);
+ * - admin — керує будь-якими подіями й користувачами.
+ * Заблокований користувач не бачить подій і профілів і нічого не може змінювати
+ * (лише /api/me, щоб клієнт знав про блокування).
  *
  * Клієнт надсилає `Authorization: tma <initData>` (сирий `Telegram.WebApp.initData`).
  */
@@ -62,9 +64,25 @@ export async function requireActiveUser(request: Request): Promise<User> {
   return user;
 }
 
+/** Створювати події можуть організатори й адміни. */
+export async function requireOrganizer(request: Request): Promise<User> {
+  const user = await requireActiveUser(request);
+  if (user.role !== "organizer" && user.role !== "admin") {
+    throw forbidden("Створювати події можуть лише організатори — попроси адміна видати право");
+  }
+  return user;
+}
+
 export async function requireAdmin(request: Request): Promise<User> {
   const user = await requireActiveUser(request);
   if (user.role !== "admin") throw forbidden("Лише для адміністраторів");
+  return user;
+}
+
+/** Для публічних маршрутів перегляду: гість або активний користувач; заблокованому — 403. */
+export async function viewer(request: Request): Promise<User | null> {
+  const user = await optionalUser(request);
+  if (user?.isBlocked) throw forbidden("Твій акаунт заблоковано");
   return user;
 }
 
@@ -83,6 +101,11 @@ export function isAdmin(user: User | null): boolean {
   return user?.role === "admin" && !user.isBlocked;
 }
 
+/** Адміни з ADMIN_TELEGRAM_IDS — власники: їхню роль і статус в адмінці змінити не можна. */
+export function isRootAdmin(user: Pick<User, "telegramId">) {
+  return env().ADMIN_TELEGRAM_IDS.includes(user.telegramId);
+}
+
 export function toUserDto(user: User) {
   return {
     id: user.id,
@@ -93,6 +116,7 @@ export function toUserDto(user: User) {
     photoUrl: user.photoUrl,
     role: user.role,
     isBlocked: user.isBlocked,
+    isRootAdmin: isRootAdmin(user),
     createdAt: user.createdAt.toISOString(),
   };
 }

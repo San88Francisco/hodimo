@@ -1,4 +1,4 @@
-import { optionalUser, requireActiveUser } from "@/lib/auth";
+import { requireActiveUser, viewer } from "@/lib/auth";
 import { handler, readJson, UuidParam } from "@/lib/http";
 import { deleteMeetup, getMeetup, updateMeetup, UpdateMeetupSchema } from "@/lib/meetups";
 
@@ -8,7 +8,7 @@ const meetupId = async ({ params }: Context) => UuidParam.parse((await params).i
 
 export const GET = handler(async (request: Request, context: Context) => {
   const id = await meetupId(context);
-  return Response.json(await getMeetup(id, await optionalUser(request)));
+  return Response.json(await getMeetup(id, await viewer(request)));
 });
 
 /** Організатор або адмін. */

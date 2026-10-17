@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, MapPin, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronRight, MapPin, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { MeetupActions } from "@/components/meetups/meetup-actions";
@@ -14,7 +14,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/meetups/[id]">): Promise<Metadata> {
   const meetup = await getMeetup((await params).id);
-  return { title: meetup ? `${meetup.title} — Вилазки` : "Вилазку не знайдено" };
+  return { title: meetup ? `${meetup.title} — Ходімо` : "Подію не знайдено" };
 }
 
 function InfoRow({
@@ -60,20 +60,21 @@ function FillBar({ value, full }: { value: number; full: boolean }) {
 
 function PersonRow({ person, note }: { person: Person; note?: string }) {
   return (
-    <li className="flex items-center gap-3 py-2.5">
-      <PersonAvatar person={person} className="size-9 text-sm" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-medium sm:text-sm">{person.firstName}</p>
-        {person.username && (
-          <a
-            href={`https://t.me/${person.username}`}
-            className="text-xs text-muted-foreground hover:text-primary"
-          >
-            @{person.username}
-          </a>
-        )}
-      </div>
-      {note && <span className="text-xs text-primary">{note}</span>}
+    <li>
+      <Link
+        href={`/users/${person.id}`}
+        className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 outline-none hover:bg-secondary/60 focus-visible:bg-secondary/60"
+      >
+        <PersonAvatar person={person} className="size-9 text-sm" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-medium sm:text-sm">{person.firstName}</p>
+          {person.username && (
+            <p className="truncate text-xs text-muted-foreground">@{person.username}</p>
+          )}
+        </div>
+        {note && <span className="text-xs text-primary">{note}</span>}
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      </Link>
     </li>
   );
 }
@@ -86,7 +87,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
 
   return (
     <div className="mx-auto max-w-3xl pb-32 lg:pb-0">
-      <PageHeader title={meetup.title} back={{ href: "/", label: "Усі вилазки" }} mobile={false} />
+      <PageHeader title={meetup.title} back={{ href: "/", label: "Усі події" }} mobile={false} />
 
       <article className="flex flex-col gap-5 lg:gap-6">
         {/* На мобільному обкладинка на всю ширину, «назад» — поверх неї. */}
@@ -98,7 +99,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
         >
           <Link
             href="/"
-            aria-label="Усі вилазки"
+            aria-label="Усі події"
             className="absolute top-[max(env(safe-area-inset-top),0.75rem)] left-3 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
           >
             <ArrowLeft className="size-5" aria-hidden />
@@ -152,16 +153,19 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
 
         {meetup.description && (
           <section className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Про вилазку</h2>
+            <h2 className="text-lg font-semibold tracking-tight">Про подію</h2>
             <p className="text-[15px] leading-relaxed whitespace-pre-line text-muted-foreground sm:text-base">
               {meetup.description}
             </p>
           </section>
         )}
 
-        <section className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-white/5">
+        <Link
+          href={`/users/${meetup.organizer.id}`}
+          className="flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-white/5 outline-none transition-colors hover:ring-white/10 focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <PersonAvatar person={meetup.organizer} className="size-10 text-sm" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">Організатор</p>
             <p className="truncate text-[15px] font-medium text-primary sm:text-sm">
               {meetup.organizer.firstName}
@@ -170,7 +174,8 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
               )}
             </p>
           </div>
-        </section>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
 
         {meetup.participants && (
           <section className="flex flex-col gap-1">

@@ -4,7 +4,7 @@ import { CoverImage } from "@/components/meetups/cover-image";
 import { avatarAccent, categoryGradient, initials, type Meetup, type Person } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-/** Фото вилазки, а якщо його немає — градієнт категорії з великим емодзі. */
+/** Фото події, а якщо його немає — градієнт категорії з великим емодзі. */
 export function MeetupCover({
   meetup,
   sizes,

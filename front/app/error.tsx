@@ -9,7 +9,7 @@ export default function Error({ retry }: { error: Error; retry: () => void }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center">
       <ServerCrash className="size-10 text-muted-foreground" aria-hidden />
-      <h1 className="text-xl font-bold tracking-tight">Не вдалося завантажити вилазки</h1>
+      <h1 className="text-xl font-bold tracking-tight">Не вдалося завантажити події</h1>
       <p className="text-sm text-muted-foreground">
         Сервер не відповідає. Перевір, що бекенд запущений, і спробуй ще раз.
       </p>
