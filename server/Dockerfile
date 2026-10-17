@@ -14,6 +14,7 @@ FROM deps AS tools
 COPY . .
 
 FROM tools AS builder
+ENV NEXT_STANDALONE=1
 RUN npm run build
 
 # Продакшн-образ: лише standalone-збірка Next.js.
