@@ -15,6 +15,13 @@
       "when": 1792244802944,
       "tag": "0001_unlimited_capacity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792255437678,
+      "tag": "0002_enable_rls",
+      "breakpoints": true
     }
   ]
 }

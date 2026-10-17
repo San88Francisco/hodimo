@@ -14,6 +14,11 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+/*
+ * RLS увімкнено на всіх таблицях і без політик: публічний Data API Supabase (REST з
+ * publishable-ключем) не бачить нічого. Наш API ходить як власник таблиць, на нього RLS не діє.
+ */
+
 export const USER_ROLES = ["user", "admin"] as const;
 
 export const userRole = pgEnum("user_role", USER_ROLES);
@@ -38,7 +43,7 @@ export const users = pgTable("users", {
   role: userRole("role").notNull().default("user"),
   isBlocked: boolean("is_blocked").notNull().default(false),
   ...timestamps,
-});
+}).enableRLS();
 
 /** Категорії веде адмін. Архівна категорія зникає з форми й фільтрів, але старі вилазки її зберігають. */
 export const categories = pgTable("categories", {
@@ -48,7 +53,7 @@ export const categories = pgTable("categories", {
   position: integer("position").notNull().default(0),
   isArchived: boolean("is_archived").notNull().default(false),
   ...timestamps,
-});
+}).enableRLS();
 
 export const meetups = pgTable(
   "meetups",
@@ -79,7 +84,7 @@ export const meetups = pgTable(
       sql`${table.capacity} is null or ${table.capacity} between 2 and 100`,
     ),
   ],
-);
+).enableRLS();
 
 export const meetupParticipants = pgTable(
   "meetup_participants",
@@ -96,7 +101,7 @@ export const meetupParticipants = pgTable(
     primaryKey({ columns: [table.meetupId, table.userId] }),
     index("meetup_participants_user_idx").on(table.userId),
   ],
-);
+).enableRLS();
 
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
