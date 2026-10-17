@@ -1,0 +1,135 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+import * as api from "@/lib/api";
+import type { Category, Me, Meetup, MeetupPayload } from "@/lib/meetups";
+import { encodeSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
+
+export type ActionError = {
+  message: string;
+  /** Помилки валідації з API: ключ — поле форми. */
+  fieldErrors: Record<string, string>;
+};
+
+function toActionError(error: unknown): ActionError {
+  if (error instanceof api.ApiError) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of error.details ?? []) {
+      if (issue.path && !fieldErrors[issue.path]) fieldErrors[issue.path] = issue.message;
+    }
+    return { message: error.message, fieldErrors };
+  }
+  console.error(error);
+  return { message: "Сервер недоступний. Спробуй ще раз.", fieldErrors: {} };
+}
+
+/** Виконує дію з API; повертає помилку або null. */
+async function attempt(fn: () => Promise<unknown>): Promise<ActionError | null> {
+  try {
+    await fn();
+    return null;
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+// ---------- Сесія ----------
+
+async function setSession(initData: string) {
+  const forwardedProto = (await headers()).get("x-forwarded-proto");
+  (await cookies()).set(
+    SESSION_COOKIE,
+    encodeSession(initData),
+    sessionCookieOptions(forwardedProto === "https"),
+  );
+}
+
+/** Вхід через Telegram: initData перевіряє API, і лише тоді вони стають сесією. */
+export async function signIn(initData: string): Promise<boolean> {
+  try {
+    await api.verifyInitData(initData);
+  } catch {
+    return false;
+  }
+  await setSession(initData);
+  return true;
+}
+
+/** Лише для розробки: вхід під тестовим користувачем без Telegram. */
+export async function devSignIn(person: { telegramId: number; firstName: string; username?: string }) {
+  if (process.env.NODE_ENV !== "development") throw new Error("Лише в режимі розробки");
+  const { initData } = await api.devInitData(person);
+  await setSession(initData);
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
+export async function signOut() {
+  (await cookies()).delete(SESSION_COOKIE);
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
+// ---------- Вилазки ----------
+
+/** Створює (id = null) або оновлює вилазку і переходить на її сторінку. */
+export async function saveMeetup(id: string | null, payload: MeetupPayload): Promise<ActionError> {
+  let meetup: Meetup;
+  try {
+    meetup = id ? await api.updateMeetup(id, payload) : await api.createMeetup(payload);
+  } catch (error) {
+    return toActionError(error);
+  }
+  revalidatePath("/");
+  revalidatePath(`/meetups/${meetup.id}`);
+  redirect(`/meetups/${meetup.id}`);
+}
+
+export async function removeMeetup(id: string): Promise<ActionError> {
+  try {
+    await api.deleteMeetup(id);
+  } catch (error) {
+    if (!(error instanceof api.ApiError && error.status === 404)) return toActionError(error);
+  }
+  revalidatePath("/");
+  redirect("/");
+}
+
+export async function setJoined(id: string, joined: boolean) {
+  const error = await attempt(() => (joined ? api.joinMeetup(id) : api.leaveMeetup(id)));
+  revalidatePath("/");
+  revalidatePath(`/meetups/${id}`);
+  return error;
+}
+
+// ---------- Адмінка ----------
+
+export async function addCategory(input: Pick<Category, "name" | "emoji">) {
+  const error = await attempt(() => api.createCategory(input));
+  revalidatePath("/", "layout");
+  return error;
+}
+
+export async function editCategory(
+  id: string,
+  patch: Partial<Pick<Category, "name" | "emoji" | "isArchived">>,
+) {
+  const error = await attempt(() => api.updateCategory(id, patch));
+  revalidatePath("/", "layout");
+  return error;
+}
+
+export async function removeCategory(id: string) {
+  const error = await attempt(() => api.deleteCategory(id));
+  revalidatePath("/", "layout");
+  return error;
+}
+
+export async function editUser(id: string, patch: Partial<Pick<Me, "role" | "isBlocked">>) {
+  const error = await attempt(() => api.updateUser(id, patch));
+  revalidatePath("/admin/users");
+  return error;
+}

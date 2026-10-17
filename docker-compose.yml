@@ -1,0 +1,60 @@
+name: hodimo
+
+x-server-env: &server-env
+  DATABASE_URL: postgres://hodimo:hodimo@db:5432/hodimo
+  APP_TIMEZONE: Europe/Warsaw
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hodimo
+      POSTGRES_PASSWORD: hodimo
+      POSTGRES_DB: hodimo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hodimo -d hodimo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Одноразово: застосовує міграції й додає стартові категорії, потім завершується.
+  migrate:
+    build:
+      context: ./server
+      target: tools
+    command: sh -c "npm run db:migrate && npm run db:categories"
+    env_file: ./server/.env
+    environment:
+      <<: *server-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  server:
+    build:
+      context: ./server
+      target: runner
+    env_file: ./server/.env
+    environment:
+      <<: *server-env
+    ports:
+      - "5000:5000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    # `docker compose watch` — перезбирає сервер при зміні коду.
+    develop:
+      watch:
+        - action: rebuild
+          path: ./server/src
+        - action: rebuild
+          path: ./server/package.json
+
+volumes:
+  pgdata:
