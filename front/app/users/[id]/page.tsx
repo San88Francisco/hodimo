@@ -13,6 +13,7 @@ import {
   canCreateMeetups,
   formatLongDate,
   fullName,
+  PAST_RETENTION_DAYS,
   plural,
   ROLE_LABEL,
   type Meetup,
@@ -82,10 +83,16 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
 
   const access = accessOf(me);
   const canCreate = profile.isSelf && canCreateMeetups(access);
-  const [organized, joined] = await Promise.all([
+  const [organized, joined, pastOrganized, pastJoined] = await Promise.all([
     listMeetups({ organizer: profile.id }),
     profile.isSelf ? listMeetups({ joined: "me" }) : null,
+    listMeetups({ organizer: profile.id, when: "past" }),
+    profile.isSelf ? listMeetups({ joined: "me", when: "past" }) : null,
   ]);
+  // Минулі: організовані (видно всім) + у власному профілі ще й ті, куди ходив; свіжіші — вище.
+  const past = [...pastOrganized.items, ...(pastJoined?.items ?? [])].sort((a, b) =>
+    b.startsAt.localeCompare(a.startsAt),
+  );
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -192,6 +199,24 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
             </>
           }
         />
+      )}
+
+      {past.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Минулі <span className="text-muted-foreground tabular-nums">{past.length}</span>
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Події зберігаються {PAST_RETENTION_DAYS} днів після завершення
+            </p>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {past.map((meetup) => (
+              <MeetupCard key={meetup.id} meetup={meetup} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

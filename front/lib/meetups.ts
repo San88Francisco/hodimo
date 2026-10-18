@@ -49,6 +49,10 @@ export type Meetup = {
   capacity: number | null;
   attendeesCount: number;
   isFull: boolean;
+  /** Час старту вже настав: подія неактивна, через PAST_RETENTION_DAYS днів її видалять. */
+  isPast: boolean;
+  /** Коли сервер видалить подію з бази (старт + PAST_RETENTION_DAYS днів). */
+  expiresAt: string;
   city: string;
   place: string;
   imageUrl: string | null;
@@ -81,8 +85,15 @@ export function accessOf(me: Me | null): Access {
   return me.role;
 }
 
-/** Створювати події можуть організатори й адміни. */
+/**
+ * Тимчасово створювати події може будь-хто, хто увійшов і не заблокований.
+ * Щоб знову лише організатори й адміни — false (і так само на сервері в lib/auth.ts).
+ */
+const ANYONE_CAN_CREATE = true;
+
+/** Створювати події можуть організатори й адміни (або всі, поки ANYONE_CAN_CREATE). */
 export function canCreateMeetups(access: Access) {
+  if (ANYONE_CAN_CREATE && access === "user") return true;
   return access === "organizer" || access === "admin";
 }
 
@@ -96,6 +107,9 @@ export const ROLE_LABEL: Record<Role, string> = {
   organizer: "Організатор",
   admin: "Адмін",
 };
+
+/** Скільки днів подію, що пройшла, ще видно (далі сервер видаляє її з бази). */
+export const PAST_RETENTION_DAYS = 30;
 
 // ---------- Кольори ----------
 

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lt, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, schema } from "@/db";
@@ -9,6 +9,13 @@ import { env } from "@/lib/env";
 import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
 
 const { categories, meetups, meetupParticipants: participants, users } = schema;
+
+/**
+ * Подія вважається такою, що пройшла, щойно настав час старту: тоді її не видно в стрічці,
+ * на неї не можна записатися чи відредагувати. Ще PAST_RETENTION_DAYS днів вона доступна за
+ * посиланням і в профілях («Минулі»), а потім cron видаляє її з бази (див. deleteExpiredMeetups).
+ */
+export const PAST_RETENTION_DAYS = 30;
 
 // ---------- Валідація ----------
 
@@ -46,6 +53,8 @@ export const ListMeetupsQuerySchema = z.object({
   organizer: z.uuid().optional(),
   /** `me` — куди записаний сам глядач, без власних подій (лише для себе). */
   joined: z.literal("me").optional(),
+  /** upcoming — майбутні (за замовчуванням); past — ті, що пройшли за останні PAST_RETENTION_DAYS днів. */
+  when: z.enum(["upcoming", "past"]).default("upcoming"),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -121,6 +130,9 @@ function toDto(row: MeetupRow, viewer: User | null) {
     capacity: meetup.capacity,
     attendeesCount: row.attendeesCount,
     isFull: meetup.capacity !== null && row.attendeesCount >= meetup.capacity,
+    isPast: meetup.startsAt.getTime() <= Date.now(),
+    /** Коли cron видалить подію з бази. */
+    expiresAt: new Date(meetup.startsAt.getTime() + PAST_RETENTION_DAYS * 86_400_000).toISOString(),
     city: meetup.city,
     place: meetup.place,
     imageUrl: meetup.imageUrl,
@@ -138,7 +150,13 @@ export async function listMeetups(
   query: z.infer<typeof ListMeetupsQuerySchema>,
   viewer: User | null,
 ) {
-  const conditions: SQL[] = [gte(meetups.startsAt, sql`now()`)];
+  const past = query.when === "past";
+  const conditions: SQL[] = past
+    ? [
+        lt(meetups.startsAt, sql`now()`),
+        gte(meetups.startsAt, sql`now() - make_interval(days => ${PAST_RETENTION_DAYS})`),
+      ]
+    : [gte(meetups.startsAt, sql`now()`)];
   if (query.date) conditions.push(dateFilter(query.date));
   if (query.category) conditions.push(eq(meetups.categoryId, query.category));
   if (query.city) conditions.push(sql`lower(${meetups.city}) = lower(${query.city})`);
@@ -150,7 +168,8 @@ export async function listMeetups(
 
   const rows = await selectMeetups(viewer)
     .where(and(...conditions))
-    .orderBy(asc(meetups.startsAt), asc(meetups.id))
+    // Майбутні — від найближчої; минулі — від найсвіжішої.
+    .orderBy(past ? desc(meetups.startsAt) : asc(meetups.startsAt), asc(meetups.id))
     .limit(query.limit + 1)
     .offset(query.offset);
 
@@ -212,6 +231,7 @@ async function lockMeetup(tx: Tx, id: string) {
 export async function updateMeetup(user: User, id: string, input: z.infer<typeof UpdateMeetupSchema>) {
   await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
+    if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Подія вже відбулася — її не можна змінити");
     if (!canManage(user, meetup.organizerId)) throw forbidden("Редагувати може лише організатор");
     if (input.categoryId && input.categoryId !== meetup.categoryId) {
       await requireActiveCategory(input.categoryId);
@@ -255,6 +275,7 @@ export async function joinMeetup(user: User, id: string) {
 
 export async function leaveMeetup(user: User, id: string) {
   const meetup = await findMeetup(id);
+  if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Подія вже відбулася");
   if (meetup.organizerId === user.id) {
     throw conflict("Організатор не може вийти — видали подію натомість");
   }
@@ -262,4 +283,13 @@ export async function leaveMeetup(user: User, id: string) {
     .delete(participants)
     .where(and(eq(participants.meetupId, id), eq(participants.userId, user.id)));
   return getMeetup(id, user);
+}
+
+/** Видаляє події, що пройшли понад PAST_RETENTION_DAYS днів тому (учасники — каскадом). */
+export async function deleteExpiredMeetups() {
+  const deleted = await db()
+    .delete(meetups)
+    .where(lt(meetups.startsAt, sql`now() - make_interval(days => ${PAST_RETENTION_DAYS})`))
+    .returning({ id: meetups.id });
+  return deleted.length;
 }

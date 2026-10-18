@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, ChevronRight, MapPin, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronRight, History, MapPin, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { MeetupActions } from "@/components/meetups/meetup-actions";
 import { MeetupCover, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { getMe, getMeetup } from "@/lib/api";
-import { accessOf, formatFullDate, formatTime, plural, type Person } from "@/lib/meetups";
+import {
+  accessOf,
+  formatFullDate,
+  formatLongDate,
+  formatTime,
+  PAST_RETENTION_DAYS,
+  plural,
+  type Person,
+} from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({
@@ -35,6 +43,20 @@ function InfoRow({
         <p className="text-xs text-muted-foreground">{label}</p>
         <div className="text-[15px] font-medium sm:text-sm">{children}</div>
       </div>
+    </div>
+  );
+}
+
+/** Завершена подія: коли була і скільки ще її зберігатимуть. */
+function PastNotice({ expiresAt }: { expiresAt: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-secondary/60 p-4 text-sm">
+      <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <p className="text-muted-foreground">
+        <span className="font-medium text-foreground">Подія завершилась.</span> Записатися чи змінити її вже
+        не можна. Сторінку буде видалено {formatLongDate(expiresAt)} — через {PAST_RETENTION_DAYS} днів
+        після події.
+      </p>
     </div>
   );
 }
@@ -95,7 +117,10 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           meetup={meetup}
           priority
           sizes="(min-width: 1024px) 48rem, 100vw"
-          className="-mx-4 aspect-4/3 lg:mx-0 lg:aspect-video lg:rounded-2xl lg:ring-1 lg:ring-white/5 [&>span]:text-8xl"
+          className={cn(
+            "-mx-4 aspect-4/3 lg:mx-0 lg:aspect-video lg:rounded-2xl lg:ring-1 lg:ring-white/5 [&>span]:text-8xl",
+            meetup.isPast && "grayscale",
+          )}
         >
           <Link
             href="/"
@@ -118,6 +143,8 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </h1>
         </header>
 
+        {meetup.isPast && <PastNotice expiresAt={meetup.expiresAt} />}
+
         <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-white/5 sm:p-6">
           <InfoRow icon={CalendarDays} label="Коли">
             {formatFullDate(meetup.startsAt)} · {formatTime(meetup.startsAt)}
@@ -126,7 +153,12 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
             {meetup.city}, {meetup.place}
           </InfoRow>
           <InfoRow icon={Users} label="Учасники">
-            {capacity === null ? (
+            {meetup.isPast ? (
+              <>
+                Було <span className="tabular-nums">{attendeesCount}</span>{" "}
+                {plural(attendeesCount, ["учасник", "учасники", "учасників"])}
+              </>
+            ) : capacity === null ? (
               <>
                 <span className="tabular-nums">{attendeesCount}</span>{" "}
                 {plural(attendeesCount, ["учасник", "учасники", "учасників"])}{" "}

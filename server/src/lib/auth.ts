@@ -64,10 +64,16 @@ export async function requireActiveUser(request: Request): Promise<User> {
   return user;
 }
 
-/** Створювати події можуть організатори й адміни. */
+/**
+ * Тимчасово створювати події може будь-який незаблокований користувач.
+ * Щоб знову обмежити це організаторами й адмінами — false (і так само на фронті в lib/meetups.ts).
+ */
+const ANYONE_CAN_CREATE = true;
+
+/** Створювати події можуть організатори й адміни (або всі, поки ANYONE_CAN_CREATE). */
 export async function requireOrganizer(request: Request): Promise<User> {
   const user = await requireActiveUser(request);
-  if (user.role !== "organizer" && user.role !== "admin") {
+  if (!ANYONE_CAN_CREATE && user.role !== "organizer" && user.role !== "admin") {
     throw forbidden("Створювати події можуть лише організатори — попроси адміна видати право");
   }
   return user;

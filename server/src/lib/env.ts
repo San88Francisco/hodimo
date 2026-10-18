@@ -18,6 +18,8 @@ const EnvSchema = z.object({
   INITDATA_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(86_400),
   /** Telegram ID, які завжди отримують роль admin. */
   ADMIN_TELEGRAM_IDS: commaList.pipe(z.array(z.string().regex(/^\d+$/).transform(Number))),
+  /** Vercel Cron надсилає `Authorization: Bearer <CRON_SECRET>`; без нього cron-маршрути закриті на проді. */
+  CRON_SECRET: z.string().min(16).optional(),
   /** Лише для локальної розробки: POST /api/dev/init-data видає підписані initData. */
   DEV_LOGIN: z
     .enum(["true", "false"])

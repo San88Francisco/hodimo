@@ -59,6 +59,30 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
     );
   }
 
+  if (meetup.isPast) {
+    return (
+      <BottomBar className="lg:border-t lg:border-border lg:pt-6">
+        {error && <ErrorLine message={error} />}
+        <div className="flex items-center gap-3">
+          <p className="flex h-12 flex-1 items-center justify-center rounded-full bg-secondary px-5 text-sm font-medium text-muted-foreground lg:h-11 lg:flex-none">
+            Подія вже відбулася
+          </p>
+          {viewer.canManage && (
+            <Button
+              variant="destructive"
+              size="lg"
+              aria-label="Видалити"
+              className="size-12 shrink-0 rounded-full lg:size-11"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              <Trash2 className="size-5 lg:size-4" aria-hidden />
+            </Button>
+          )}
+        </div>
+      </BottomBar>
+    );
+  }
+
   const manageButtons = viewer.canManage && (
     <>
       {!viewer.isOrganizer && (

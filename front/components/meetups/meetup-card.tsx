@@ -17,7 +17,7 @@ export function MeetupCard({ meetup }: { meetup: Meetup }) {
       <MeetupCover
         meetup={meetup}
         sizes="(min-width: 1280px) 30rem, (min-width: 768px) 45vw, 100vw"
-        className="aspect-video w-full"
+        className={cn("aspect-video w-full", meetup.isPast && "opacity-60 grayscale")}
         imageClassName="transition-transform duration-500 group-hover:scale-[1.03]"
       >
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
@@ -34,7 +34,9 @@ export function MeetupCard({ meetup }: { meetup: Meetup }) {
             </span>
           </OverlayBadge>
         </div>
-        {meetup.viewer.isJoined && (
+        {meetup.isPast ? (
+          <OverlayBadge className="absolute bottom-3 left-3">Завершилась</OverlayBadge>
+        ) : meetup.viewer.isJoined && (
           <OverlayBadge className="absolute bottom-3 left-3 bg-primary text-primary-foreground">
             <Check aria-hidden />
             {meetup.viewer.isOrganizer ? "Ти організатор" : "Ти йдеш"}
