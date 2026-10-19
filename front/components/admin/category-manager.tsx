@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Archive, ArchiveRestore, Plus, Trash2 } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Archive, ArchiveRestore, GripVertical, Plus, Trash2 } from "lucide-react";
 
-import { addCategory, editCategory, removeCategory } from "@/app/actions";
+import { addCategory, editCategory, removeCategory, reorderCategories } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Category } from "@/lib/meetups";
@@ -75,7 +75,24 @@ function NewCategory() {
   );
 }
 
-function CategoryRow({ category }: { category: Category }) {
+/** Обробники «ручки» рядка: перетягування пальцем / мишею та стрілки з клавіатури. */
+type DragHandle = {
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onPointerUp: () => void;
+  onPointerCancel: () => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+};
+
+function CategoryRow({
+  category,
+  dragging,
+  handle,
+}: {
+  category: Category;
+  dragging: boolean;
+  handle: DragHandle;
+}) {
   const [name, setName] = useState(category.name);
   const [emoji, setEmoji] = useState(category.emoji);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -83,8 +100,27 @@ function CategoryRow({ category }: { category: Category }) {
   const dirty = name.trim() !== category.name || emoji.trim() !== category.emoji;
 
   return (
-    <li className={cn("flex flex-col gap-2 py-3", category.isArchived && "opacity-60")}>
-      <div className="flex items-center gap-2">
+    <li
+      data-id={category.id}
+      className={cn(
+        "flex flex-col gap-2 py-3",
+        dragging && "relative z-10 rounded-2xl bg-secondary px-2 shadow-lg shadow-black/40",
+      )}
+    >
+      <div className={cn("flex items-center gap-2", category.isArchived && "opacity-60")}>
+        {/* touch-none — щоб у Telegram палець тягнув рядок, а не прокручував сторінку. */}
+        <button
+          type="button"
+          aria-label={`Перетягнути «${category.name}»`}
+          title="Перетягни, щоб змінити порядок"
+          className={cn(
+            "-ml-1 grid h-11 w-7 shrink-0 touch-none place-items-center rounded-lg text-muted-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
+            dragging ? "cursor-grabbing text-foreground" : "cursor-grab hover:text-foreground",
+          )}
+          {...handle}
+        >
+          <GripVertical className="size-5" aria-hidden />
+        </button>
         <Input
           aria-label="Емодзі"
           className="h-11 w-14 shrink-0 rounded-xl text-center text-lg"
@@ -162,19 +198,103 @@ function CategoryRow({ category }: { category: Category }) {
   );
 }
 
+const sameOrder = (a: Category[], b: Category[]) => a.every((item, index) => item.id === b[index]?.id);
+
+function move(items: Category[], id: string, to: number) {
+  const from = items.findIndex((item) => item.id === id);
+  if (from === -1 || from === to) return items;
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item!);
+  return next;
+}
+
 export function CategoryManager({ categories }: { categories: Category[] }) {
+  // Локальний порядок: під час перетягування рядки міняються одразу, на сервер — лише по відпусканні.
+  const [items, setItems] = useState(categories);
+  const [synced, setSynced] = useState(categories);
+  if (categories !== synced) {
+    setSynced(categories);
+    setItems(categories);
+  }
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const { error, pending, run } = useAction();
+
+  function save(next: Category[]) {
+    if (sameOrder(next, categories)) return;
+    run(
+      async () => {
+        const result = await reorderCategories(next.map((item) => item.id));
+        if (result) setItems(categories); // не вдалося — повертаємо як було
+        return result;
+      },
+    );
+  }
+
+  /** Куди стати рядку: скільки інших рядків мають середину вище за палець. */
+  function targetIndex(id: string, clientY: number) {
+    const rows = Array.from(listRef.current?.children ?? []) as HTMLElement[];
+    return rows.filter((row) => {
+      if (row.dataset.id === id) return false;
+      const rect = row.getBoundingClientRect();
+      return clientY > rect.top + rect.height / 2;
+    }).length;
+  }
+
+  function handleFor(id: string): DragHandle {
+    const drop = () => {
+      if (draggingId !== id) return;
+      setDraggingId(null);
+      save(items);
+    };
+    return {
+      onPointerDown(event) {
+        if (pending || event.button !== 0) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setDraggingId(id);
+      },
+      onPointerMove(event) {
+        if (draggingId !== id) return;
+        const to = targetIndex(id, event.clientY);
+        setItems((current) => move(current, id, to));
+      },
+      onPointerUp: drop,
+      onPointerCancel: drop,
+      onKeyDown(event) {
+        if (pending || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+        event.preventDefault();
+        const from = items.findIndex((item) => item.id === id);
+        const to = from + (event.key === "ArrowUp" ? -1 : 1);
+        if (to < 0 || to >= items.length) return;
+        const next = move(items, id, to);
+        setItems(next);
+        save(next);
+      },
+    };
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <NewCategory />
-      <ul className="divide-y divide-border">
-        {categories.map((category) => (
-          // key з даними — щоб після збереження поля скинулись до нових значень.
-          <CategoryRow
-            key={`${category.id}:${category.name}:${category.emoji}:${category.isArchived}`}
-            category={category}
-          />
-        ))}
-      </ul>
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-muted-foreground">
+          {pending ? "Зберігаю порядок…" : "Тягни за ⋮⋮, щоб змінити порядок у фільтрах і формі."}
+        </p>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <ul ref={listRef} className={cn("divide-y divide-border", draggingId && "select-none")}>
+          {items.map((category) => (
+            // key з даними — щоб після збереження поля скинулись до нових значень.
+            <CategoryRow
+              key={`${category.id}:${category.name}:${category.emoji}:${category.isArchived}`}
+              category={category}
+              dragging={draggingId === category.id}
+              handle={handleFor(category.id)}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

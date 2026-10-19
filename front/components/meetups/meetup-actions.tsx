@@ -63,6 +63,31 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
     );
   }
 
+  // ---------- Завершена (бачить лише адмін): змінити не можна, лише видалити ----------
+  if (meetup.isPast) {
+    return (
+      <BottomBar className="lg:border-t lg:border-border lg:pt-6">
+        {error && <ErrorLine message={error} />}
+        <div className="flex items-center gap-3">
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground lg:flex-none">
+            Подія вже відбулася
+          </p>
+          {viewer.canManage && (
+            <Button
+              variant="destructive"
+              size="lg"
+              className={cn(BIG, "px-5")}
+              onClick={() => setConfirmingDelete(true)}
+            >
+              <Trash2 aria-hidden />
+              Видалити
+            </Button>
+          )}
+        </div>
+      </BottomBar>
+    );
+  }
+
   // ---------- Ще не схвалена: модерація (адмін) або правки (автор) ----------
   if (meetup.status !== "approved") {
     const adminReview = access === "admin" && !viewer.isOrganizer;

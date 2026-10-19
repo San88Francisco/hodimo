@@ -49,7 +49,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           filter={filter}
           categories={categories}
           canCreate={canCreate}
-          canDelete={access === "admin"}
+          isAdmin={access === "admin"}
         />
       </div>
     </>

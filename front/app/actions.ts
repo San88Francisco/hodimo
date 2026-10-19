@@ -198,6 +198,12 @@ export async function removeCategory(id: string) {
   return error;
 }
 
+export async function reorderCategories(ids: string[]) {
+  const error = await attempt(() => api.reorderCategories(ids));
+  revalidatePath("/", "layout");
+  return error;
+}
+
 export async function editUser(id: string, patch: Partial<Pick<Me, "role" | "isBlocked">>) {
   const error = await attempt(() => api.updateUser(id, patch));
   revalidatePath("/admin/users");

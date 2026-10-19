@@ -207,7 +207,7 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">
             {past.map((meetup) => (
-              <MeetupCard key={meetup.id} meetup={meetup} canDelete={access === "admin"} />
+              <MeetupCard key={meetup.id} meetup={meetup} isAdmin={access === "admin"} />
             ))}
           </div>
         </section>

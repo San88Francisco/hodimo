@@ -56,7 +56,7 @@ function InfoRow({
   );
 }
 
-/** Завершену подію не відкриваємо: лише коротко, що вона вже відбулася. */
+/** Завершену подію не відкриваємо (крім адміна): лише коротко, що вона вже відбулася. */
 function PastScreen({ meetup }: { meetup: Meetup }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center">
@@ -77,6 +77,17 @@ function PastScreen({ meetup }: { meetup: Meetup }) {
 
 /** Статус модерації — бачать лише автор і адміни (іншим непідтверджена подія недоступна). */
 function StatusNotice({ meetup, isAdminView }: { meetup: Meetup; isAdminView: boolean }) {
+  if (meetup.isPast) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl bg-secondary p-4 text-sm">
+        <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <p className="text-muted-foreground">
+          <span className="font-medium text-foreground">Подія вже відбулася.</span> Її бачиш лише ти як
+          адмін — змінити її не можна, лише видалити.
+        </p>
+      </div>
+    );
+  }
   if (meetup.status === "pending") {
     return (
       <div className="flex items-start gap-3 rounded-2xl bg-amber-400/10 p-4 text-sm">
@@ -150,7 +161,8 @@ function PersonRow({ person, note }: { person: Person; note?: string }) {
 export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">) {
   const [meetup, me] = await Promise.all([getMeetup((await params).id), getMe()]);
   if (!meetup) notFound();
-  if (meetup.isPast) return <PastScreen meetup={meetup} />;
+  const access = accessOf(me);
+  if (meetup.isPast && access !== "admin") return <PastScreen meetup={meetup} />;
 
   const { capacity, attendeesCount } = meetup;
 
@@ -187,7 +199,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </h1>
         </header>
 
-        <StatusNotice meetup={meetup} isAdminView={accessOf(me) === "admin" && !meetup.viewer.isOrganizer} />
+        <StatusNotice meetup={meetup} isAdminView={access === "admin" && !meetup.viewer.isOrganizer} />
 
         <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-white/5 sm:p-6">
           <InfoRow icon={CalendarDays} label="Коли">
@@ -265,7 +277,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </section>
         )}
 
-        <MeetupActions meetup={meetup} access={accessOf(me)} />
+        <MeetupActions meetup={meetup} access={access} />
       </article>
     </div>
   );

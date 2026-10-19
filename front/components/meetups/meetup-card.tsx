@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays, Check, Clock3, History, MapPin, Users, XCircle } from "lucide-react";
 
 import { CardDeleteButton } from "@/components/meetups/card-delete-button";
+import { CardDescription } from "@/components/meetups/card-description";
 import { MeetupCover, OverlayBadge, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { formatDayLabel, formatTime, STATUS_LABEL, type Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
@@ -44,17 +45,18 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
 }
 
 /**
- * Картка події. Завершена — з плашкою «Завершилась» і не відкривається: лишається як запис в історії.
- * canDelete (адмін) — кнопка видалення просто на картці, бо завершену подію не відкрити.
+ * Картка події. Завершена — з плашкою «Завершилась» і лишається як запис в історії:
+ * відкрити її може лише адмін (isAdmin), він же видаляє будь-яку подію просто з картки.
  */
-export function MeetupCard({ meetup, canDelete = false }: { meetup: Meetup; canDelete?: boolean }) {
+export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmin?: boolean }) {
   const inactive = meetup.isPast;
+  const openable = !inactive || isAdmin;
 
   return (
     <article
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-white/5",
-        !inactive &&
+        openable &&
           "transition-colors hover:ring-white/10 focus-within:ring-2 focus-within:ring-ring",
       )}
     >
@@ -62,7 +64,11 @@ export function MeetupCard({ meetup, canDelete = false }: { meetup: Meetup; canD
         meetup={meetup}
         sizes="(min-width: 1280px) 30rem, (min-width: 768px) 45vw, 100vw"
         className="aspect-video w-full"
-        imageClassName={cn(!inactive && "transition-transform duration-500 group-hover:scale-[1.03]")}
+        // Завершена — картинка ледь сіра (10%), плашки поверх лишаються кольоровими.
+        imageClassName={cn(
+          inactive && "grayscale-10",
+          openable && "transition-transform duration-500 group-hover:scale-[1.03]",
+        )}
       >
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <OverlayBadge>
@@ -79,20 +85,20 @@ export function MeetupCard({ meetup, canDelete = false }: { meetup: Meetup; canD
           </OverlayBadge>
         </div>
         <StateBadge meetup={meetup} />
-        {canDelete && <CardDeleteButton meetupId={meetup.id} className="absolute right-3 bottom-3" />}
+        {isAdmin && <CardDeleteButton meetupId={meetup.id} className="absolute right-3 bottom-3" />}
       </MeetupCover>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-          {inactive ? (
-            <>
-              {meetup.title} <span aria-hidden>{meetup.category.emoji}</span>
-            </>
-          ) : (
+          {openable ? (
             <Link href={`/meetups/${meetup.id}`} className="outline-none">
               <span className="absolute inset-0" aria-hidden />
               {meetup.title} <span aria-hidden>{meetup.category.emoji}</span>
             </Link>
+          ) : (
+            <>
+              {meetup.title} <span aria-hidden>{meetup.category.emoji}</span>
+            </>
           )}
         </h3>
 
@@ -102,11 +108,7 @@ export function MeetupCard({ meetup, canDelete = false }: { meetup: Meetup; canD
           </p>
         )}
 
-        {meetup.description && (
-          <p className="line-clamp-2-safe text-sm leading-relaxed text-muted-foreground">
-            {meetup.description}
-          </p>
-        )}
+        {meetup.description && <CardDescription text={meetup.description} />}
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
           <div className="flex min-w-0 items-center gap-2">

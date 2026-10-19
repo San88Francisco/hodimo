@@ -119,6 +119,10 @@ export function deleteCategory(id: string) {
   return request<void>(`/categories/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+export function reorderCategories(ids: string[]) {
+  return request<{ items: Category[] }>("/categories/order", json("PUT", { ids }));
+}
+
 // ---------- Події ----------
 
 export function listMeetups(query: Record<string, string> = {}) {
