@@ -11,7 +11,7 @@ export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id
   const { id } = await params;
   const [meetup, categories] = await Promise.all([getMeetup(id), listCategories()]);
   if (!meetup) notFound();
-  // Редагують лише організатор і адміни, і лише поки подія не почалася.
+  // Редагують лише автор і адміни, і лише поки подія не почалася.
   if (!meetup.viewer.canManage || meetup.isPast) redirect(`/meetups/${meetup.id}`);
 
   return (
@@ -20,7 +20,13 @@ export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id
         title="Редагувати подію"
         back={{ href: `/meetups/${meetup.id}`, label: "До події" }}
       />
-      <MeetupForm categories={categories} meetup={meetup} />
+      <MeetupForm
+        categories={categories}
+        meetup={meetup}
+        submitLabel={
+          meetup.status === "rejected" && meetup.viewer.isOrganizer ? "Надіслати на розгляд знову" : undefined
+        }
+      />
     </div>
   );
 }

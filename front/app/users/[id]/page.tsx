@@ -13,7 +13,6 @@ import {
   canCreateMeetups,
   formatLongDate,
   fullName,
-  PAST_RETENTION_DAYS,
   plural,
   ROLE_LABEL,
   type Meetup,
@@ -89,7 +88,7 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
     listMeetups({ organizer: profile.id, when: "past" }),
     profile.isSelf ? listMeetups({ joined: "me", when: "past" }) : null,
   ]);
-  // Минулі: організовані (видно всім) + у власному профілі ще й ті, куди ходив; свіжіші — вище.
+  // Історія: завершені власні події (у своєму профілі — з усіма статусами) + ті, куди ходив; свіжіші — вище.
   const past = [...pastOrganized.items, ...(pastJoined?.items ?? [])].sort((a, b) =>
     b.startsAt.localeCompare(a.startsAt),
   );
@@ -164,12 +163,12 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
       )}
 
       <MeetupSection
-        title={profile.isSelf ? "Я організовую" : "Організовує"}
+        title={profile.isSelf ? "Мої події" : "Організовує"}
         meetups={organized.items}
         empty={
           profile.isSelf ? (
             <div className="flex flex-col items-center gap-3">
-              <p>Поки що жодної події.</p>
+              <p>Поки що жодної події. Нову подію спершу перевірить адмін — і тоді її побачать усі.</p>
               {canCreate && (
                 <Link
                   href="/meetups/new"
@@ -203,14 +202,9 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
 
       {past.length > 0 && (
         <section className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              Минулі <span className="text-muted-foreground tabular-nums">{past.length}</span>
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Події зберігаються {PAST_RETENTION_DAYS} днів після завершення
-            </p>
-          </div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Історія <span className="text-muted-foreground tabular-nums">{past.length}</span>
+          </h2>
           <div className="grid gap-4 lg:grid-cols-2">
             {past.map((meetup) => (
               <MeetupCard key={meetup.id} meetup={meetup} />

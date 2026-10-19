@@ -2,22 +2,26 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Pencil, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 
-import { removeMeetup, setJoined } from "@/app/actions";
+import { moderateMeetup, removeMeetup, setJoined } from "@/app/actions";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { Access, Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 const BIG = "h-12 rounded-full text-base font-semibold lg:h-11 lg:text-sm";
 
 /**
- * Нижня панель на сторінці події. Що в ній — залежить від ролі:
- * гість бачить підказку, учасник записується, організатор і адмін редагують і видаляють.
+ * Нижня панель на сторінці події. Що в ній — залежить від ролі й статусу:
+ * гість бачить підказку, користувач записується, автор і адмін редагують і видаляють,
+ * а поки подія на розгляді — адмін схвалює або відхиляє її.
  */
 export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Access }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const { viewer } = meetup;
@@ -59,14 +63,85 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
     );
   }
 
-  if (meetup.isPast) {
+  // ---------- Ще не схвалена: модерація (адмін) або правки (автор) ----------
+  if (meetup.status !== "approved") {
+    const adminReview = access === "admin" && !viewer.isOrganizer;
+
+    if (adminReview && rejecting) {
+      return (
+        <BottomBar className="lg:border-t lg:border-border lg:pt-6">
+          {error && <ErrorLine message={error} />}
+          <div className="flex flex-col gap-2">
+            <Input
+              autoFocus
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Причина (необов'язково) — її побачить автор"
+              maxLength={300}
+              className="h-11 rounded-xl text-base"
+            />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="lg"
+                className="h-12 rounded-full px-4 lg:h-11"
+                disabled={pending}
+                onClick={() => setRejecting(false)}
+              >
+                Назад
+              </Button>
+              <Button
+                variant="destructive"
+                size="lg"
+                className={cn(BIG, "flex-1 px-5 lg:flex-none")}
+                disabled={pending}
+                onClick={() => run(() => moderateMeetup(meetup.id, "reject", reason.trim() || undefined))}
+              >
+                {pending ? "Відхиляю…" : "Відхилити"}
+              </Button>
+            </div>
+          </div>
+        </BottomBar>
+      );
+    }
+
     return (
       <BottomBar className="lg:border-t lg:border-border lg:pt-6">
         {error && <ErrorLine message={error} />}
         <div className="flex items-center gap-3">
-          <p className="flex h-12 flex-1 items-center justify-center rounded-full bg-secondary px-5 text-sm font-medium text-muted-foreground lg:h-11 lg:flex-none">
-            Подія вже відбулася
-          </p>
+          {adminReview ? (
+            <>
+              {meetup.status === "pending" && (
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  className={cn(BIG, "px-5")}
+                  disabled={pending}
+                  onClick={() => setRejecting(true)}
+                >
+                  <X aria-hidden />
+                  Відхилити
+                </Button>
+              )}
+              <Button
+                size="lg"
+                className={cn(BIG, "flex-1 px-5 lg:flex-none")}
+                disabled={pending}
+                onClick={() => run(() => moderateMeetup(meetup.id, "approve"))}
+              >
+                <Check aria-hidden />
+                {pending ? "Схвалюю…" : "Схвалити"}
+              </Button>
+            </>
+          ) : (
+            <Link
+              href={`/meetups/${meetup.id}/edit`}
+              className={cn(buttonVariants({ size: "lg" }), BIG, "flex-1 px-5 lg:flex-none")}
+            >
+              <Pencil aria-hidden />
+              {meetup.status === "rejected" ? "Виправити й надіслати знову" : "Редагувати"}
+            </Link>
+          )}
           {viewer.canManage && (
             <Button
               variant="destructive"

@@ -17,10 +17,18 @@ export default async function NewMeetupPage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader
         title="Нова подія"
-        description="Кілька полів — і компанія знайдеться."
+        description="Кілька полів — і після перевірки адміном компанія знайдеться."
         back={{ href: "/", label: "Усі події" }}
       />
-      {canCreate ? <MeetupForm categories={categories} /> : <AccessNotice access={access} need="create" />}
+      {canCreate ? (
+        <MeetupForm
+          categories={categories}
+          // Подію адміна видно одразу; подію користувача спершу перевіряє адмін.
+          submitLabel={access === "admin" ? "Створити подію" : "Надіслати на розгляд"}
+        />
+      ) : (
+        <AccessNotice access={access} />
+      )}
     </div>
   );
 }

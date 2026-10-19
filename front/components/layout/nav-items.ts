@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
     match: (pathname) => pathname === "/" || pathname.startsWith("/meetups"),
   },
   {
-    href: "/admin/users",
+    href: "/admin/moderation",
     label: "Адмінка",
     icon: ShieldCheck,
     match: (pathname) => pathname.startsWith("/admin"),

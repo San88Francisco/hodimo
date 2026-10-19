@@ -20,12 +20,19 @@ import {
  */
 
 /**
- * user — записується на події; organizer — ще й створює їх (право видає адмін);
- * admin — керує всім. Блокування — окремий прапорець поверх будь-якої ролі.
+ * user — записується на події й пропонує свої (через модерацію); admin — модерує й керує всім.
+ * Блокування — окремий прапорець поверх будь-якої ролі.
  */
-export const USER_ROLES = ["user", "organizer", "admin"] as const;
+export const USER_ROLES = ["user", "admin"] as const;
+
+/**
+ * Подію користувача спершу бачать лише автор і адміни (pending). Адмін схвалює — її бачать усі
+ * (approved), або відхиляє — вона лишається тільки в історії автора (rejected).
+ */
+export const MEETUP_STATUSES = ["pending", "approved", "rejected"] as const;
 
 export const userRole = pgEnum("user_role", USER_ROLES);
+export const meetupStatus = pgEnum("meetup_status", MEETUP_STATUSES);
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -77,10 +84,14 @@ export const meetups = pgTable(
     organizerId: uuid("organizer_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    status: meetupStatus("status").notNull().default("pending"),
+    /** Пояснення адміна при відхиленні — бачить лише автор. */
+    rejectReason: text("reject_reason"),
     ...timestamps,
   },
   (table) => [
     index("meetups_starts_at_idx").on(table.startsAt),
+    index("meetups_status_idx").on(table.status),
     index("meetups_organizer_idx").on(table.organizerId),
     index("meetups_category_idx").on(table.categoryId),
     check(
@@ -111,3 +122,4 @@ export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Meetup = typeof meetups.$inferSelect;
 export type UserRole = (typeof USER_ROLES)[number];
+export type MeetupStatus = (typeof MEETUP_STATUSES)[number];

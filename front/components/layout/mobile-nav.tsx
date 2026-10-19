@@ -7,6 +7,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import {
   CalendarDays,
   ChevronRight,
+  ClipboardCheck,
   Menu,
   Plus,
   Shapes,
@@ -26,10 +27,12 @@ type Item = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   active: (pathname: string) => boolean;
+  /** Число праворуч (напр. черга модерації). */
+  badge?: number;
 };
 
 /** Бургер-меню для мобільного: висувна панель зліва з навігацією за роллю. */
-export function MobileNav({ me }: { me: Me | null }) {
+export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCount?: number }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const access = accessOf(me);
@@ -56,6 +59,13 @@ export function MobileNav({ me }: { me: Me | null }) {
   const admin: Item[] =
     access === "admin"
       ? [
+          {
+            href: "/admin/moderation",
+            label: "Модерація",
+            icon: ClipboardCheck,
+            active: (p) => p.startsWith("/admin/moderation"),
+            badge: pendingCount,
+          },
           { href: "/admin/users", label: "Користувачі", icon: Users, active: (p) => p.startsWith("/admin/users") },
           {
             href: "/admin/categories",
@@ -66,7 +76,7 @@ export function MobileNav({ me }: { me: Me | null }) {
         ]
       : [];
 
-  const renderItem = ({ href, label, icon: Icon, active }: Item) => {
+  const renderItem = ({ href, label, icon: Icon, active, badge }: Item) => {
     const isActive = active(pathname);
     return (
       <li key={href}>
@@ -81,7 +91,12 @@ export function MobileNav({ me }: { me: Me | null }) {
           )}
         >
           <Icon className={cn("size-5", isActive ? "text-primary" : "text-muted-foreground")} />
-          {label}
+          <span className="flex-1">{label}</span>
+          {badge ? (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 text-[11px] font-bold text-black tabular-nums">
+              {badge}
+            </span>
+          ) : null}
         </Link>
       </li>
     );

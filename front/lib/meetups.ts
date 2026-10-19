@@ -7,7 +7,10 @@ export type Person = {
   photoUrl: string | null;
 };
 
-export type Role = "user" | "organizer" | "admin";
+export type Role = "user" | "admin";
+
+/** pending — на розгляді; approved — бачать усі; rejected — відхилена, лише в історії автора. */
+export type MeetupStatus = "pending" | "approved" | "rejected";
 
 export type Me = Person & {
   telegramId: number;
@@ -49,10 +52,11 @@ export type Meetup = {
   capacity: number | null;
   attendeesCount: number;
   isFull: boolean;
-  /** Час старту вже настав: подія неактивна, через PAST_RETENTION_DAYS днів її видалять. */
+  /** Час старту вже настав: подія неактивна, лишається лише в історії. */
   isPast: boolean;
-  /** Коли сервер видалить подію з бази (старт + PAST_RETENTION_DAYS днів). */
-  expiresAt: string;
+  status: MeetupStatus;
+  /** Причина відхилення — приходить лише автору й адмінам. */
+  rejectReason: string | null;
   city: string;
   place: string;
   imageUrl: string | null;
@@ -85,31 +89,21 @@ export function accessOf(me: Me | null): Access {
   return me.role;
 }
 
-/**
- * Тимчасово створювати події може будь-хто, хто увійшов і не заблокований.
- * Щоб знову лише організатори й адміни — false (і так само на сервері в lib/auth.ts).
- */
-const ANYONE_CAN_CREATE = true;
-
-/** Створювати події можуть організатори й адміни (або всі, поки ANYONE_CAN_CREATE). */
+/** Створювати події може будь-хто, хто увійшов і не заблокований (події користувачів — через модерацію). */
 export function canCreateMeetups(access: Access) {
-  if (ANYONE_CAN_CREATE && access === "user") return true;
-  return access === "organizer" || access === "admin";
-}
-
-/** Чи може записуватись на події (будь-хто, хто увійшов і не заблокований). */
-export function canJoinMeetups(access: Access) {
-  return access === "user" || canCreateMeetups(access);
+  return access === "user" || access === "admin";
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
-  user: "Учасник",
-  organizer: "Організатор",
+  user: "Користувач",
   admin: "Адмін",
 };
 
-/** Скільки днів подію, що пройшла, ще видно (далі сервер видаляє її з бази). */
-export const PAST_RETENTION_DAYS = 30;
+export const STATUS_LABEL: Record<MeetupStatus, string> = {
+  pending: "На розгляді",
+  approved: "Схвалено",
+  rejected: "Відхилено",
+};
 
 // ---------- Кольори ----------
 

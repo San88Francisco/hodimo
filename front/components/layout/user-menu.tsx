@@ -10,8 +10,7 @@ import { cn } from "@/lib/utils";
 
 const ROLE: Record<Access, { label: string; tone: string }> = {
   guest: { label: "Гість", tone: "bg-secondary text-muted-foreground" },
-  user: { label: "Учасник", tone: "bg-secondary text-foreground" },
-  organizer: { label: "Організатор", tone: "bg-sky-500/15 text-sky-300" },
+  user: { label: "Користувач", tone: "bg-secondary text-foreground" },
   admin: { label: "Адмін", tone: "bg-primary/15 text-primary" },
   blocked: { label: "Заблоковано", tone: "bg-destructive/15 text-destructive" },
 };
@@ -112,7 +111,7 @@ export function UserMenu({ me }: { me: Me | null }) {
               </MenuLink>
             )}
             {access === "admin" && (
-              <MenuLink href="/admin/users" icon={ShieldCheck}>
+              <MenuLink href="/admin/moderation" icon={ShieldCheck}>
                 Адмінка
               </MenuLink>
             )}

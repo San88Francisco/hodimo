@@ -14,8 +14,7 @@ import { cn } from "@/lib/utils";
 const ACCESS_LABEL = {
   guest: "Гість",
   blocked: "Заблоковано",
-  user: "Учасник",
-  organizer: "Організатор",
+  user: "Користувач",
   admin: "Адмін",
 } as const;
 

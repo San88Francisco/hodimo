@@ -8,7 +8,7 @@ import { UserRow } from "@/components/admin/user-row";
 import { PageHeader } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getMe, listUsers, USER_FILTERS, type UserFilter } from "@/lib/api";
+import { getMe, getPendingCount, listUsers, USER_FILTERS, type UserFilter } from "@/lib/api";
 import { accessOf } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +16,7 @@ export const metadata: Metadata = { title: "Користувачі — Адмі�
 
 const FILTER_LABEL: Record<UserFilter, string> = {
   all: "Усі",
-  user: "Учасники",
-  organizer: "Організатори",
+  user: "Користувачі",
   admin: "Адміни",
   blocked: "Заблоковані",
 };
@@ -48,7 +47,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Адмінка" back={{ href: "/", label: "Усі події" }} />
-      <AdminTabs active="/admin/users" />
+      <AdminTabs active="/admin/users" pendingCount={await getPendingCount()} />
 
       <form className="relative" role="search">
         {filter !== "all" && <input type="hidden" name="filter" value={filter} />}

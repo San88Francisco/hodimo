@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { fullName, ROLE_LABEL, type Me, type Role } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-const ROLES: Role[] = ["user", "organizer", "admin"];
+const ROLES: Role[] = ["user", "admin"];
 
 /**
  * Рядок користувача в адмінці: роль (учасник / організатор / адмін) і блокування.

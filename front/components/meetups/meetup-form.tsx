@@ -1,19 +1,20 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Check, ImageOff, Minus, Plus } from "lucide-react";
 import Image from "next/image";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { saveMeetup } from "@/app/actions";
+import { resolveImageUrl, saveMeetup } from "@/app/actions";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { DatePickerChip } from "@/components/meetups/date-picker-chip";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { isGoogleShareLink, normalizeImageUrl } from "@/lib/image-url";
 import {
   formatDayKey,
   fromDateTimeInputs,
@@ -43,7 +44,9 @@ const FormSchema = z
     description: z.string().trim().max(1000, "Максимум 1000 символів"),
     imageUrl: z.union([
       z.literal(""),
-      z.url({ protocol: /^https?$/, error: "Встав посилання, що починається з https://" }),
+      z
+        .url({ protocol: /^https?$/, error: "Встав посилання, що починається з https://" })
+        .refine((value) => !isGoogleShareLink(value), "За цим посиланням Google не знайшлося картинки"),
     ]),
   })
   .superRefine((value, ctx) => {
@@ -245,7 +248,16 @@ function ImagePreview({ src }: { src: string }) {
   );
 }
 
-export function MeetupForm({ categories, meetup }: { categories: Category[]; meetup?: Meetup }) {
+export function MeetupForm({
+  categories,
+  meetup,
+  submitLabel,
+}: {
+  categories: Category[];
+  meetup?: Meetup;
+  /** Напр. «Надіслати на розгляд» для користувача. */
+  submitLabel?: string;
+}) {
   const [pending, startTransition] = useTransition();
   const quickDays = useQuickDays();
   const defaults = defaultsFor(meetup);
@@ -268,6 +280,34 @@ export function MeetupForm({ categories, meetup }: { categories: Category[]; mee
   const { errors } = formState;
   const date = useWatch({ control, name: "date" });
   const imageUrl = useWatch({ control, name: "imageUrl" });
+  // share.google, з якого картинку дістати не вдалося, — щоб не крутити «шукаю» вічно.
+  const [unresolvedLink, setUnresolvedLink] = useState<string | null>(null);
+  const resolvingImage = isGoogleShareLink(imageUrl) && unresolvedLink !== imageUrl;
+
+  // Вставлене посилання → адреса самої картинки (текст навколо, google imgres, share.google).
+  useEffect(() => {
+    const normalized = normalizeImageUrl(imageUrl);
+    if (normalized !== imageUrl) {
+      setValue("imageUrl", normalized, { shouldValidate: true });
+      return;
+    }
+    if (!isGoogleShareLink(imageUrl)) return;
+    let cancelled = false;
+    resolveImageUrl(imageUrl)
+      .catch(() => null)
+      .then((target) => {
+        if (cancelled) return;
+        if (target) {
+          setValue("imageUrl", target, { shouldValidate: true });
+        } else {
+          setUnresolvedLink(imageUrl);
+          setError("imageUrl", { message: "За цим посиланням Google не знайшлося картинки" });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUrl, setValue, setError]);
 
   const onSubmit = handleSubmit((values) => {
     const { date, time, imageUrl, ...rest } = values;
@@ -474,11 +514,17 @@ export function MeetupForm({ categories, meetup }: { categories: Category[]; mee
             {...register("imageUrl", { setValueAs: (value: string) => value.trim() })}
           />
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Знайди картинку в інтернеті, утримуй її (або клікни правою кнопкою) → «Копіювати адресу
-            зображення» і встав сюди.
+            Знайди картинку в Google, натисни «Поділитися» → «Копіювати посилання» і встав сюди.
+            Підійде й адреса зображення: утримуй картинку → «Копіювати адресу зображення».
           </p>
-          <FieldError errors={[errors.imageUrl]} />
-          {isHttpUrl(imageUrl) && <ImagePreview key={imageUrl} src={imageUrl} />}
+          {resolvingImage ? (
+            <p className="text-sm text-muted-foreground">Шукаю картинку за посиланням…</p>
+          ) : (
+            <FieldError errors={[errors.imageUrl]} />
+          )}
+          {isHttpUrl(imageUrl) && !isGoogleShareLink(imageUrl) && (
+            <ImagePreview key={imageUrl} src={imageUrl} />
+          )}
         </Field>
       </FieldGroup>
 
@@ -492,10 +538,10 @@ export function MeetupForm({ categories, meetup }: { categories: Category[]; mee
         <Button
           type="submit"
           size="lg"
-          disabled={pending}
+          disabled={pending || resolvingImage}
           className="h-12 w-full rounded-full px-6 text-base font-semibold lg:h-11 lg:w-auto lg:text-sm"
         >
-          {pending ? "Зберігаю…" : meetup ? "Зберегти зміни" : "Створити подію"}
+          {pending ? "Зберігаю…" : submitLabel ?? (meetup ? "Зберегти зміни" : "Створити подію")}
         </Button>
       </BottomBar>
     </form>

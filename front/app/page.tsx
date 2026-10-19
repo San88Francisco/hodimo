@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { UserMenu } from "@/components/layout/user-menu";
 import { MeetupsFeed } from "@/components/meetups/meetups-feed";
 import { buttonVariants } from "@/components/ui/button";
-import { getMe, listCategories, listMeetups } from "@/lib/api";
+import { getMe, getPendingCount, listCategories, listMeetups } from "@/lib/api";
 import { accessOf, canCreateMeetups, parseFeedFilter } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -18,13 +18,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   const access = accessOf(me);
   const canCreate = canCreateMeetups(access);
+  const pendingCount = access === "admin" ? await getPendingCount() : 0;
 
   return (
     <>
       <PageHeader
         title="Події"
         description="Знайди компанію поруч — або збери свою за пару хвилин."
-        leading={<MobileNav me={me} />}
+        leading={<MobileNav me={me} pendingCount={pendingCount} />}
         action={
           <>
             {canCreate && (

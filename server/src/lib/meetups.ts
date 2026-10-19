@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, gte, lt, ne, sql, type SQL } from "drizzle-o
 import { z } from "zod";
 
 import { db, schema } from "@/db";
-import type { User } from "@/db/schema";
+import { MEETUP_STATUSES, type User } from "@/db/schema";
 import { isAdmin } from "@/lib/auth";
 import { requireActiveCategory, toCategoryDto } from "@/lib/categories";
 import { env } from "@/lib/env";
@@ -10,12 +10,15 @@ import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
 
 const { categories, meetups, meetupParticipants: participants, users } = schema;
 
-/**
- * Подія вважається такою, що пройшла, щойно настав час старту: тоді її не видно в стрічці,
- * на неї не можна записатися чи відредагувати. Ще PAST_RETENTION_DAYS днів вона доступна за
- * посиланням і в профілях («Минулі»), а потім cron видаляє її з бази (див. deleteExpiredMeetups).
+/*
+ * Життєвий цикл події:
+ * - pending  — щойно створена користувачем; бачать лише автор і адміни;
+ * - approved — схвалена адміном (події адмінів — одразу); бачать усі, можна записатися;
+ * - rejected — відхилена; лишається тільки в історії автора, з причиною. Автор може виправити —
+ *   тоді вона знову йде на розгляд.
+ * Подія, час старту якої минув, — «завершена»: з неї нічого не можна зробити, але вона назавжди
+ * лишається в історії (стрічка показує лише майбутні).
  */
-export const PAST_RETENTION_DAYS = 30;
 
 // ---------- Валідація ----------
 
@@ -45,27 +48,40 @@ export const UpdateMeetupSchema = z
   .partial()
   .refine((value) => Object.keys(value).length > 0, "Немає полів для оновлення");
 
+export const RejectSchema = z.object({
+  reason: z.string().trim().max(300, "Максимум 300 символів").optional(),
+});
+
 export const ListMeetupsQuerySchema = z.object({
   date: z.enum(["today", "weekend"]).optional(),
   category: z.uuid().optional(),
   city: z.string().trim().min(1).max(80).optional(),
-  /** Події, які організовує ця людина (публічно). */
+  /** Події цієї людини: стороннім — лише схвалені, самому автору й адмінам — усі. */
   organizer: z.uuid().optional(),
   /** `me` — куди записаний сам глядач, без власних подій (лише для себе). */
   joined: z.literal("me").optional(),
-  /** upcoming — майбутні (за замовчуванням); past — ті, що пройшли за останні PAST_RETENTION_DAYS днів. */
+  /** upcoming — майбутні (за замовчуванням); past — завершені, від найсвіжішої. */
   when: z.enum(["upcoming", "past"]).default("upcoming"),
+  /** Лише для адмінів: черга модерації та інші статуси. */
+  status: z.enum(MEETUP_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
 
 // ---------- Права ----------
 
-/** Організатор своєї події або адмін; заблоковані нічим не керують. */
+/** Автор своєї події або адмін; заблоковані нічим не керують. */
 function canManage(viewer: User | null, organizerId: string) {
   if (!viewer || viewer.isBlocked) return false;
   return viewer.id === organizerId || viewer.role === "admin";
 }
+
+/** Непідтверджену подію бачать лише автор і адміни. */
+function canSee(viewer: User | null, meetup: { status: string; organizerId: string }) {
+  return meetup.status === "approved" || canManage(viewer, meetup.organizerId);
+}
+
+const isPast = (startsAt: Date) => startsAt.getTime() <= Date.now();
 
 // ---------- Запити ----------
 
@@ -121,6 +137,7 @@ type MeetupRow = Awaited<ReturnType<typeof selectMeetups>>[number];
 
 function toDto(row: MeetupRow, viewer: User | null) {
   const { meetup, category, organizer } = row;
+  const manage = canManage(viewer, meetup.organizerId);
   return {
     id: meetup.id,
     title: meetup.title,
@@ -130,9 +147,10 @@ function toDto(row: MeetupRow, viewer: User | null) {
     capacity: meetup.capacity,
     attendeesCount: row.attendeesCount,
     isFull: meetup.capacity !== null && row.attendeesCount >= meetup.capacity,
-    isPast: meetup.startsAt.getTime() <= Date.now(),
-    /** Коли cron видалить подію з бази. */
-    expiresAt: new Date(meetup.startsAt.getTime() + PAST_RETENTION_DAYS * 86_400_000).toISOString(),
+    isPast: isPast(meetup.startsAt),
+    status: meetup.status,
+    /** Причина відхилення — лише автору й адмінам. */
+    rejectReason: manage ? meetup.rejectReason : null,
     city: meetup.city,
     place: meetup.place,
     imageUrl: meetup.imageUrl,
@@ -140,7 +158,7 @@ function toDto(row: MeetupRow, viewer: User | null) {
     viewer: {
       isJoined: row.isJoined,
       isOrganizer: viewer?.id === meetup.organizerId,
-      canManage: canManage(viewer, meetup.organizerId),
+      canManage: manage,
     },
     createdAt: meetup.createdAt.toISOString(),
   };
@@ -151,12 +169,18 @@ export async function listMeetups(
   viewer: User | null,
 ) {
   const past = query.when === "past";
-  const conditions: SQL[] = past
-    ? [
-        lt(meetups.startsAt, sql`now()`),
-        gte(meetups.startsAt, sql`now() - make_interval(days => ${PAST_RETENTION_DAYS})`),
-      ]
-    : [gte(meetups.startsAt, sql`now()`)];
+  const conditions: SQL[] = [
+    past ? lt(meetups.startsAt, sql`now()`) : gte(meetups.startsAt, sql`now()`),
+  ];
+
+  // Видимість за статусом: стороннім — лише схвалені; своя історія (і будь-яка для адміна) — усі.
+  if (query.status) {
+    if (!isAdmin(viewer)) throw forbidden("Фільтр за статусом — лише для адмінів");
+    conditions.push(eq(meetups.status, query.status));
+  } else if (!(query.organizer && canManage(viewer, query.organizer))) {
+    conditions.push(eq(meetups.status, "approved"));
+  }
+
   if (query.date) conditions.push(dateFilter(query.date));
   if (query.category) conditions.push(eq(meetups.categoryId, query.category));
   if (query.city) conditions.push(sql`lower(${meetups.city}) = lower(${query.city})`);
@@ -168,7 +192,7 @@ export async function listMeetups(
 
   const rows = await selectMeetups(viewer)
     .where(and(...conditions))
-    // Майбутні — від найближчої; минулі — від найсвіжішої.
+    // Майбутні — від найближчої; завершені — від найсвіжішої.
     .orderBy(past ? desc(meetups.startsAt) : asc(meetups.startsAt), asc(meetups.id))
     .limit(query.limit + 1)
     .offset(query.offset);
@@ -180,10 +204,19 @@ export async function listMeetups(
   };
 }
 
-/** Деталі події. Список учасників бачать лише організатор і адміни. */
+/** Скільки подій чекає на модерацію (для лічильника в меню адміна). */
+export async function countPending() {
+  const [row] = await db()
+    .select({ value: count() })
+    .from(meetups)
+    .where(and(eq(meetups.status, "pending"), gte(meetups.startsAt, sql`now()`)));
+  return row?.value ?? 0;
+}
+
+/** Деталі події. Список учасників бачать лише автор і адміни; непідтверджену — тільки вони. */
 export async function getMeetup(id: string, viewer: User | null) {
   const [row] = await selectMeetups(viewer).where(eq(meetups.id, id)).limit(1);
-  if (!row) throw notFound("Подію не знайдено");
+  if (!row || !canSee(viewer, row.meetup)) throw notFound("Подію не знайдено");
   const dto = toDto(row, viewer);
 
   const canSeeParticipants =
@@ -201,14 +234,19 @@ export async function getMeetup(id: string, viewer: User | null) {
   return { ...dto, participants: participantList };
 }
 
+/** Подію користувача — на розгляд; подію адміна — одразу всім. */
 export async function createMeetup(user: User, input: z.infer<typeof CreateMeetupSchema>) {
   await requireActiveCategory(input.categoryId);
   const id = await db().transaction(async (tx) => {
     const [meetup] = await tx
       .insert(meetups)
-      .values({ ...input, organizerId: user.id })
+      .values({
+        ...input,
+        organizerId: user.id,
+        status: user.role === "admin" ? "approved" : "pending",
+      })
       .returning({ id: meetups.id });
-    // Організатор одразу серед учасників.
+    // Автор одразу серед учасників.
     await tx.insert(participants).values({ meetupId: meetup!.id, userId: user.id });
     return meetup!.id;
   });
@@ -228,18 +266,26 @@ async function lockMeetup(tx: Tx, id: string) {
   return { meetup, taken: taken?.value ?? 0 };
 }
 
+/**
+ * Редагування. Відхилену подію автор виправляє — і вона знову йде на розгляд.
+ * Схвалена після правок лишається схваленою (щоб не зникати з-під ніг учасників).
+ */
 export async function updateMeetup(user: User, id: string, input: z.infer<typeof UpdateMeetupSchema>) {
   await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
-    if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Подія вже відбулася — її не можна змінити");
-    if (!canManage(user, meetup.organizerId)) throw forbidden("Редагувати може лише організатор");
+    if (!canManage(user, meetup.organizerId)) throw forbidden("Редагувати може лише автор події");
+    if (isPast(meetup.startsAt)) throw conflict("Подія вже відбулася — її не можна змінити");
     if (input.categoryId && input.categoryId !== meetup.categoryId) {
       await requireActiveCategory(input.categoryId);
     }
     if (input.capacity != null && input.capacity < taken) {
       throw conflict(`Уже записалося ${taken} — місць не може бути менше`);
     }
-    await tx.update(meetups).set(input).where(eq(meetups.id, id));
+    const resubmit = meetup.status === "rejected" && user.role !== "admin";
+    await tx
+      .update(meetups)
+      .set({ ...input, ...(resubmit && { status: "pending" as const, rejectReason: null }) })
+      .where(eq(meetups.id, id));
   });
   return getMeetup(id, user);
 }
@@ -252,14 +298,15 @@ async function findMeetup(id: string) {
 
 export async function deleteMeetup(user: User, id: string) {
   const meetup = await findMeetup(id);
-  if (!canManage(user, meetup.organizerId)) throw forbidden("Видалити може лише організатор");
+  if (!canManage(user, meetup.organizerId)) throw forbidden("Видалити може лише автор події");
   await db().delete(meetups).where(eq(meetups.id, id));
 }
 
 export async function joinMeetup(user: User, id: string) {
   await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
-    if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Подія вже почалася");
+    if (meetup.status !== "approved") throw conflict("Подія ще на розгляді");
+    if (isPast(meetup.startsAt)) throw conflict("Подія вже почалася");
 
     const [already] = await tx
       .select({ userId: participants.userId })
@@ -275,9 +322,9 @@ export async function joinMeetup(user: User, id: string) {
 
 export async function leaveMeetup(user: User, id: string) {
   const meetup = await findMeetup(id);
-  if (meetup.startsAt.getTime() <= Date.now()) throw conflict("Подія вже відбулася");
+  if (isPast(meetup.startsAt)) throw conflict("Подія вже відбулася");
   if (meetup.organizerId === user.id) {
-    throw conflict("Організатор не може вийти — видали подію натомість");
+    throw conflict("Автор не може вийти — видали подію натомість");
   }
   await db()
     .delete(participants)
@@ -285,11 +332,27 @@ export async function leaveMeetup(user: User, id: string) {
   return getMeetup(id, user);
 }
 
-/** Видаляє події, що пройшли понад PAST_RETENTION_DAYS днів тому (учасники — каскадом). */
-export async function deleteExpiredMeetups() {
-  const deleted = await db()
-    .delete(meetups)
-    .where(lt(meetups.startsAt, sql`now() - make_interval(days => ${PAST_RETENTION_DAYS})`))
-    .returning({ id: meetups.id });
-  return deleted.length;
+// ---------- Модерація ----------
+
+/** Схвалити (зокрема раніше відхилену). */
+export async function approveMeetup(admin: User, id: string) {
+  const meetup = await findMeetup(id);
+  if (isPast(meetup.startsAt)) throw conflict("Подія вже відбулася");
+  await db()
+    .update(meetups)
+    .set({ status: "approved", rejectReason: null })
+    .where(eq(meetups.id, id));
+  return getMeetup(id, admin);
 }
+
+/** Відхилити з необов'язковою причиною: подія лишиться лише в історії автора. */
+export async function rejectMeetup(admin: User, id: string, reason?: string) {
+  const meetup = await findMeetup(id);
+  if (isPast(meetup.startsAt)) throw conflict("Подія вже відбулася");
+  await db()
+    .update(meetups)
+    .set({ status: "rejected", rejectReason: reason || null })
+    .where(eq(meetups.id, id));
+  return getMeetup(id, admin);
+}
+

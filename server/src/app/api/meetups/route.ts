@@ -1,4 +1,4 @@
-import { requireOrganizer, viewer } from "@/lib/auth";
+import { requireActiveUser, viewer } from "@/lib/auth";
 import { handler, readJson, readQuery } from "@/lib/http";
 import {
   createMeetup,
@@ -13,9 +13,9 @@ export const GET = handler(async (request: Request) => {
   return Response.json(await listMeetups(query, await viewer(request)));
 });
 
-/** Створити подію можуть організатори й адміни (незаблоковані). */
+/** Створити подію може будь-хто незаблокований: подія користувача йде на розгляд адміну. */
 export const POST = handler(async (request: Request) => {
-  const user = await requireOrganizer(request);
+  const user = await requireActiveUser(request);
   const input = await readJson(request, CreateMeetupSchema);
   return Response.json(await createMeetup(user, input), { status: 201 });
 });

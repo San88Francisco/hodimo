@@ -156,9 +156,29 @@ export function leaveMeetup(id: string) {
   return request<Meetup>(`/meetups/${encodeURIComponent(id)}/join`, { method: "DELETE" });
 }
 
+// ---------- Модерація (адмін) ----------
+
+export function approveMeetup(id: string) {
+  return request<Meetup>(`/meetups/${encodeURIComponent(id)}/approve`, { method: "POST" });
+}
+
+export function rejectMeetup(id: string, reason?: string) {
+  return request<Meetup>(`/meetups/${encodeURIComponent(id)}/reject`, json("POST", { reason }));
+}
+
+/** Лічильник черги модерації для меню; 0, якщо щось пішло не так (не ламаємо сторінку). */
+export const getPendingCount = cache(async () => {
+  try {
+    const { pendingMeetups } = await request<{ pendingMeetups: number }>("/admin/summary");
+    return pendingMeetups;
+  } catch {
+    return 0;
+  }
+});
+
 // ---------- Адмінка ----------
 
-export const USER_FILTERS = ["all", "user", "organizer", "admin", "blocked"] as const;
+export const USER_FILTERS = ["all", "user", "admin", "blocked"] as const;
 export type UserFilter = (typeof USER_FILTERS)[number];
 
 export function listUsers({

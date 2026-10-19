@@ -8,7 +8,7 @@ import { conflict, notFound } from "@/lib/http";
 
 const { users, meetups, meetupParticipants: participants } = schema;
 
-export const USER_FILTERS = ["all", "user", "organizer", "admin", "blocked"] as const;
+export const USER_FILTERS = ["all", "user", "admin", "blocked"] as const;
 
 export const ListUsersQuerySchema = z.object({
   q: z.string().trim().max(64).optional(),
@@ -41,7 +41,6 @@ export async function listUsers(query: z.infer<typeof ListUsersQuerySchema>) {
   const byFilter = {
     all: undefined,
     user: and(eq(users.role, "user"), eq(users.isBlocked, false)),
-    organizer: and(eq(users.role, "organizer"), eq(users.isBlocked, false)),
     admin: eq(users.role, "admin"),
     blocked: eq(users.isBlocked, true),
   }[query.filter];
@@ -59,7 +58,6 @@ export async function listUsers(query: z.infer<typeof ListUsersQuerySchema>) {
       .select({
         all: count(),
         user: sql<number>`count(*) filter (where ${users.role} = 'user' and not ${users.isBlocked})::int`,
-        organizer: sql<number>`count(*) filter (where ${users.role} = 'organizer' and not ${users.isBlocked})::int`,
         admin: sql<number>`count(*) filter (where ${users.role} = 'admin')::int`,
         blocked: sql<number>`count(*) filter (where ${users.isBlocked})::int`,
       })
@@ -108,12 +106,17 @@ export async function getProfile(id: string, viewer: User | null) {
   if (!user) throw notFound("Користувача не знайдено");
 
   const [[organized], [joined]] = await Promise.all([
-    db().select({ value: count() }).from(meetups).where(eq(meetups.organizerId, id)),
+    db()
+      .select({ value: count() })
+      .from(meetups)
+      .where(and(eq(meetups.organizerId, id), eq(meetups.status, "approved"))),
     db()
       .select({ value: count() })
       .from(participants)
       .innerJoin(meetups, eq(meetups.id, participants.meetupId))
-      .where(and(eq(participants.userId, id), ne(meetups.organizerId, id))),
+      .where(
+        and(eq(participants.userId, id), ne(meetups.organizerId, id), eq(meetups.status, "approved")),
+      ),
   ]);
 
   const canSeePrivate = viewer?.id === id || isAdmin(viewer);

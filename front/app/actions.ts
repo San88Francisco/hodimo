@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import * as api from "@/lib/api";
+import { googleImageTarget, isGoogleShareLink, isGoogleUrl } from "@/lib/image-url";
 import type { Category, Me, Meetup, MeetupPayload } from "@/lib/meetups";
 import { encodeSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 
@@ -82,6 +83,33 @@ export async function devSignOut() {
 
 // ---------- Події ----------
 
+/**
+ * share.google/… → адреса картинки, на яку воно веде; null, якщо там не картинка.
+ * Йдемо за редиректами вручну й лише в межах Google, щоб не стукати на довільні адреси.
+ */
+export async function resolveImageUrl(link: string): Promise<string | null> {
+  if (!isGoogleShareLink(link)) return null;
+  let url = link;
+  try {
+    for (let hop = 0; hop < 5; hop++) {
+      const response = await fetch(url, {
+        redirect: "manual",
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
+      const location = response.headers.get("location");
+      if (response.status < 300 || response.status >= 400 || !location) return null;
+      url = new URL(location, url).href;
+      const target = googleImageTarget(url);
+      if (target) return target;
+      if (!isGoogleUrl(url)) return null;
+    }
+  } catch (error) {
+    console.error("resolveImageUrl", error);
+  }
+  return null;
+}
+
 /** Створює (id = null) або оновлює подію і переходить на її сторінку. */
 export async function saveMeetup(id: string | null, payload: MeetupPayload): Promise<ActionError> {
   let meetup: Meetup;
@@ -109,6 +137,16 @@ export async function setJoined(id: string, joined: boolean) {
   const error = await attempt(() => (joined ? api.joinMeetup(id) : api.leaveMeetup(id)));
   revalidatePath("/");
   revalidatePath(`/meetups/${id}`);
+  return error;
+}
+
+// ---------- Модерація ----------
+
+export async function moderateMeetup(id: string, decision: "approve" | "reject", reason?: string) {
+  const error = await attempt(() =>
+    decision === "approve" ? api.approveMeetup(id) : api.rejectMeetup(id, reason),
+  );
+  revalidatePath("/", "layout");
   return error;
 }
 
