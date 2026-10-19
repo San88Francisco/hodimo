@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, Check, Clock3, History, MapPin, Users, XCircle } from "lucide-react";
 
+import { CardDeleteButton } from "@/components/meetups/card-delete-button";
 import { MeetupCover, OverlayBadge, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { formatDayLabel, formatTime, STATUS_LABEL, type Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
@@ -44,8 +45,9 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
 
 /**
  * Картка події. Завершена — з плашкою «Завершилась» і не відкривається: лишається як запис в історії.
+ * canDelete (адмін) — кнопка видалення просто на картці, бо завершену подію не відкрити.
  */
-export function MeetupCard({ meetup }: { meetup: Meetup }) {
+export function MeetupCard({ meetup, canDelete = false }: { meetup: Meetup; canDelete?: boolean }) {
   const inactive = meetup.isPast;
 
   return (
@@ -77,6 +79,7 @@ export function MeetupCard({ meetup }: { meetup: Meetup }) {
           </OverlayBadge>
         </div>
         <StateBadge meetup={meetup} />
+        {canDelete && <CardDeleteButton meetupId={meetup.id} className="absolute right-3 bottom-3" />}
       </MeetupCover>
 
       <div className="flex flex-1 flex-col gap-2 p-4">

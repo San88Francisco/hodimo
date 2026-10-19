@@ -44,7 +44,13 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       <div className="flex flex-col gap-4 lg:gap-6">
         <AccessNotice access={access} />
-        <MeetupsFeed meetups={items} filter={filter} categories={categories} canCreate={canCreate} />
+        <MeetupsFeed
+          meetups={items}
+          filter={filter}
+          categories={categories}
+          canCreate={canCreate}
+          canDelete={access === "admin"}
+        />
       </div>
     </>
   );

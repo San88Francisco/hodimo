@@ -12,11 +12,14 @@ export function MeetupsFeed({
   filter,
   categories,
   canCreate,
+  canDelete,
 }: {
   meetups: Meetup[];
   filter: FeedFilter;
   categories: Category[];
   canCreate: boolean;
+  /** Адмін видаляє будь-яку подію просто зі стрічки. */
+  canDelete: boolean;
 }) {
   return (
     <>
@@ -27,7 +30,7 @@ export function MeetupsFeed({
       {meetups.length > 0 ? (
         <div className="grid gap-4 lg:grid-cols-2 lg:gap-5 2xl:grid-cols-3">
           {meetups.map((meetup) => (
-            <MeetupCard key={meetup.id} meetup={meetup} />
+            <MeetupCard key={meetup.id} meetup={meetup} canDelete={canDelete} />
           ))}
         </div>
       ) : (

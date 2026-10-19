@@ -150,6 +150,14 @@ export async function removeMeetup(id: string): Promise<ActionError> {
   redirect("/");
 }
 
+/** Видалення зі списку (адмін — з картки): лишаємось на тій самій сторінці. */
+export async function removeMeetupInPlace(id: string): Promise<ActionError | null> {
+  const error = await attempt(() => api.deleteMeetup(id));
+  revalidatePath("/");
+  revalidatePath("/users/[id]", "page");
+  return error;
+}
+
 export async function setJoined(id: string, joined: boolean) {
   const error = await attempt(() => (joined ? api.joinMeetup(id) : api.leaveMeetup(id)));
   revalidatePath("/");
