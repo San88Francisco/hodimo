@@ -43,7 +43,7 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
 }
 
 /**
- * Картка події. Завершена — приглушена й не відкривається: вона лишається лише як запис в історії.
+ * Картка події. Завершена — з плашкою «Завершилась» і не відкривається: лишається як запис в історії.
  */
 export function MeetupCard({ meetup }: { meetup: Meetup }) {
   const inactive = meetup.isPast;
@@ -52,15 +52,14 @@ export function MeetupCard({ meetup }: { meetup: Meetup }) {
     <article
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-white/5",
-        inactive
-          ? "opacity-55 saturate-50"
-          : "transition-colors hover:ring-white/10 focus-within:ring-2 focus-within:ring-ring",
+        !inactive &&
+          "transition-colors hover:ring-white/10 focus-within:ring-2 focus-within:ring-ring",
       )}
     >
       <MeetupCover
         meetup={meetup}
         sizes="(min-width: 1280px) 30rem, (min-width: 768px) 45vw, 100vw"
-        className={cn("aspect-video w-full", inactive && "grayscale")}
+        className="aspect-video w-full"
         imageClassName={cn(!inactive && "transition-transform duration-500 group-hover:scale-[1.03]")}
       >
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">

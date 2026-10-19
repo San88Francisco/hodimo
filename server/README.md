@@ -57,7 +57,7 @@ npm run dev                                      # http://localhost:5000
 | `POST`   | `/api/categories`          | адмін               | `{ name, emoji }`                                           |
 | `PATCH`  | `/api/categories/:id`      | адмін               | `{ name?, emoji?, isArchived? }`                            |
 | `DELETE` | `/api/categories/:id`      | адмін               | лише порожню; з подіями — 409, архівуй                    |
-| `GET`    | `/api/meetups`             | усі                 | схвалені майбутні: `?date=today\|weekend&category=<id>&city=…`; `?when=past` — завершені; `?organizer=<id>` — події людини (своя історія — з усіма статусами); `?joined=me`; адмін: `?status=pending\|rejected` |
+| `GET`    | `/api/meetups`             | усі                 | схвалені майбутні: `?date=today\|weekend&category=<id>&city=…`; `?when=past` — завершені; `?when=all` — майбутні, під ними завершені; `?organizer=<id>` — події людини (своя історія — з усіма статусами); `?joined=me`; адмін: `?status=pending\|rejected` |
 | `POST`   | `/api/meetups`             | користувач          | створити: користувачу — на розгляд, адміну — одразу       |
 | `GET`    | `/api/meetups/:id`         | усі                 | деталі (непідтверджену — лише автору й адміну); `participants` — автору й адміну |
 | `PATCH`  | `/api/meetups/:id`         | автор / адмін       | змінити поля (відхилену — знову на розгляд)                |

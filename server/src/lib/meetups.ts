@@ -61,8 +61,11 @@ export const ListMeetupsQuerySchema = z.object({
   organizer: z.uuid().optional(),
   /** `me` — куди записаний сам глядач, без власних подій (лише для себе). */
   joined: z.literal("me").optional(),
-  /** upcoming — майбутні (за замовчуванням); past — завершені, від найсвіжішої. */
-  when: z.enum(["upcoming", "past"]).default("upcoming"),
+  /**
+   * upcoming — майбутні (за замовчуванням); past — завершені, від найсвіжішої;
+   * all — спершу майбутні, під ними завершені (головна стрічка).
+   */
+  when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
   /** Лише для адмінів: черга модерації та інші статуси. */
   status: z.enum(MEETUP_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -169,10 +172,9 @@ export async function listMeetups(
   query: z.infer<typeof ListMeetupsQuerySchema>,
   viewer: User | null,
 ) {
-  const past = query.when === "past";
-  const conditions: SQL[] = [
-    past ? lt(meetups.startsAt, sql`now()`) : gte(meetups.startsAt, sql`now()`),
-  ];
+  const conditions: SQL[] = [];
+  if (query.when === "past") conditions.push(lt(meetups.startsAt, sql`now()`));
+  if (query.when === "upcoming") conditions.push(gte(meetups.startsAt, sql`now()`));
 
   // Видимість за статусом: стороннім — лише схвалені; своя історія (і будь-яка для адміна) — усі.
   if (query.status) {
@@ -193,8 +195,13 @@ export async function listMeetups(
 
   const rows = await selectMeetups(viewer)
     .where(and(...conditions))
-    // Майбутні — від найближчої; завершені — від найсвіжішої.
-    .orderBy(past ? desc(meetups.startsAt) : asc(meetups.startsAt), asc(meetups.id))
+    // Майбутні — від найближчої; завершені — під ними, від найсвіжішої.
+    .orderBy(
+      sql`${meetups.startsAt} < now()`,
+      sql`case when ${meetups.startsAt} >= now() then ${meetups.startsAt} end asc`,
+      desc(meetups.startsAt),
+      asc(meetups.id),
+    )
     .limit(query.limit + 1)
     .offset(query.offset);
 

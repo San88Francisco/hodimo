@@ -173,12 +173,16 @@ export function parseFeedFilter(
   categories: Category[],
 ): { filter: FeedFilter; query: Record<string, string> } {
   const date = DATE_FILTERS.find((item) => item.id === params.filter);
-  if (date) return { filter: { kind: "date", id: date.id }, query: { date: date.id } };
+  // У стрічці завершені події лишаються — під активними.
+  if (date) return { filter: { kind: "date", id: date.id }, query: { date: date.id, when: "all" } };
   const category = categories.find((item) => item.id === params.category);
   if (category) {
-    return { filter: { kind: "category", id: category.id }, query: { category: category.id } };
+    return {
+      filter: { kind: "category", id: category.id },
+      query: { category: category.id, when: "all" },
+    };
   }
-  return { filter: { kind: "all" }, query: {} };
+  return { filter: { kind: "all" }, query: { when: "all" } };
 }
 
 // ---------- Дати ----------
