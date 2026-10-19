@@ -6,6 +6,7 @@ import { MEETUP_STATUSES, type User } from "@/db/schema";
 import { isAdmin } from "@/lib/auth";
 import { requireActiveCategory, toCategoryDto } from "@/lib/categories";
 import { env } from "@/lib/env";
+import { resolveImageUrl } from "@/lib/image-resolve";
 import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
 
 const { categories, meetups, meetupParticipants: participants, users } = schema;
@@ -234,9 +235,23 @@ export async function getMeetup(id: string, viewer: User | null) {
   return { ...dto, participants: participantList };
 }
 
+/**
+ * Посилання на сторінку (Pinterest, Instagram…) замінюємо на пряму картинку з неї.
+ * Якщо сайт не віддав картинку — лишаємо як є: на картці тоді просто буде емодзі категорії.
+ */
+async function directImage(url: string | null | undefined) {
+  if (!url) return url;
+  try {
+    return (await resolveImageUrl(url)).imageUrl;
+  } catch {
+    return url;
+  }
+}
+
 /** Подію користувача — на розгляд; подію адміна — одразу всім. */
 export async function createMeetup(user: User, input: z.infer<typeof CreateMeetupSchema>) {
   await requireActiveCategory(input.categoryId);
+  input = { ...input, imageUrl: await directImage(input.imageUrl) ?? null };
   const id = await db().transaction(async (tx) => {
     const [meetup] = await tx
       .insert(meetups)
@@ -271,6 +286,7 @@ async function lockMeetup(tx: Tx, id: string) {
  * Схвалена після правок лишається схваленою (щоб не зникати з-під ніг учасників).
  */
 export async function updateMeetup(user: User, id: string, input: z.infer<typeof UpdateMeetupSchema>) {
+  if (input.imageUrl) input = { ...input, imageUrl: await directImage(input.imageUrl) };
   await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
     if (!canManage(user, meetup.organizerId)) throw forbidden("Редагувати може лише автор події");

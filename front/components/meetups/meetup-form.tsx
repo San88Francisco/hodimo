@@ -280,34 +280,45 @@ export function MeetupForm({
   const { errors } = formState;
   const date = useWatch({ control, name: "date" });
   const imageUrl = useWatch({ control, name: "imageUrl" });
-  // share.google, з якого картинку дістати не вдалося, — щоб не крутити «шукаю» вічно.
-  const [unresolvedLink, setUnresolvedLink] = useState<string | null>(null);
-  const resolvingImage = isGoogleShareLink(imageUrl) && unresolvedLink !== imageUrl;
+  // Посилання, які вже перевірили: true — це картинка, false — картинку не знайшли.
+  const [checkedLinks, setCheckedLinks] = useState<Record<string, boolean>>(() =>
+    defaults.imageUrl ? { [defaults.imageUrl]: true } : {},
+  );
+  // З якого сайту взяли картинку — підказка під полем.
+  const [foundOn, setFoundOn] = useState<string | null>(null);
+  const resolvingImage = isHttpUrl(imageUrl) && !(imageUrl in checkedLinks);
 
-  // Вставлене посилання → адреса самої картинки (текст навколо, google imgres, share.google).
+  // Будь-яке вставлене посилання → адреса самої картинки: текст навколо, google imgres,
+  // share.google, пін у Pinterest, сторінка сайту, коротке посилання.
   useEffect(() => {
     const normalized = normalizeImageUrl(imageUrl);
     if (normalized !== imageUrl) {
       setValue("imageUrl", normalized, { shouldValidate: true });
       return;
     }
-    if (!isGoogleShareLink(imageUrl)) return;
+    if (!isHttpUrl(imageUrl) || imageUrl in checkedLinks) return;
     let cancelled = false;
-    resolveImageUrl(imageUrl)
-      .catch(() => null)
-      .then((target) => {
-        if (cancelled) return;
-        if (target) {
-          setValue("imageUrl", target, { shouldValidate: true });
-        } else {
-          setUnresolvedLink(imageUrl);
-          setError("imageUrl", { message: "За цим посиланням Google не знайшлося картинки" });
-        }
-      });
+    // Невелика пауза — щоб не смикати сервер на кожну літеру, якщо посилання набирають руками.
+    const timer = setTimeout(() => {
+      resolveImageUrl(imageUrl)
+        .catch(() => null)
+        .then((target) => {
+          if (cancelled) return;
+          if (target && target !== imageUrl) {
+            setCheckedLinks((links) => ({ ...links, [imageUrl]: true, [target]: true }));
+            setFoundOn(new URL(imageUrl).hostname.replace(/^www\./, ""));
+            setValue("imageUrl", target, { shouldValidate: true });
+          } else {
+            setCheckedLinks((links) => ({ ...links, [imageUrl]: Boolean(target) }));
+            setFoundOn(null);
+          }
+        });
+    }, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [imageUrl, setValue, setError]);
+  }, [imageUrl, checkedLinks, setValue]);
 
   const onSubmit = handleSubmit((values) => {
     const { date, time, imageUrl, ...rest } = values;
@@ -514,15 +525,22 @@ export function MeetupForm({
             {...register("imageUrl", { setValueAs: (value: string) => value.trim() })}
           />
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Знайди картинку в Google, натисни «Поділитися» → «Копіювати посилання» і встав сюди.
-            Підійде й адреса зображення: утримуй картинку → «Копіювати адресу зображення».
+            Встав будь-яке посилання: пін з Pinterest, «Поділитися» з Google Картинок, сторінку сайту
+            чи адресу самого зображення — картинку знайдемо самі.
           </p>
           {resolvingImage ? (
             <p className="text-sm text-muted-foreground">Шукаю картинку за посиланням…</p>
+          ) : checkedLinks[imageUrl] === false ? (
+            <p className="text-sm text-muted-foreground">
+              На цій сторінці картинку не знайшли — спробуй інше посилання або адресу самого зображення.
+            </p>
           ) : (
             <FieldError errors={[errors.imageUrl]} />
           )}
-          {isHttpUrl(imageUrl) && !isGoogleShareLink(imageUrl) && (
+          {foundOn && !resolvingImage && checkedLinks[imageUrl] && (
+            <p className="text-xs text-primary">Взяли картинку зі сторінки {foundOn}</p>
+          )}
+          {isHttpUrl(imageUrl) && !resolvingImage && checkedLinks[imageUrl] !== false && (
             <ImagePreview key={imageUrl} src={imageUrl} />
           )}
         </Field>

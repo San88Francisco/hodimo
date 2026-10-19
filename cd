@@ -1,0 +1,8 @@
+      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND
+       99      95      95       7620  ?         197609 16:46:34 /usr/bin/sed
+       95       1      95      33216  ?         197609 16:46:34 /usr/bin/bash
+      190     130     190      13300  cons0     197609 16:51:40 /usr/bin/PS
+      130       1     130      17536  cons0     197609 16:51:37 /usr/bin/bash
+      101      95      95      45532  ?         197609 16:46:34 /usr/bin/head
+      100      95      95      13464  ?         197609 16:46:34 /usr/bin/sort
+       98      95      95       7516  ?         197609 16:46:34 /usr/bin/grep

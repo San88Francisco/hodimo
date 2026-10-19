@@ -156,6 +156,11 @@ export function leaveMeetup(id: string) {
   return request<Meetup>(`/meetups/${encodeURIComponent(id)}/join`, { method: "DELETE" });
 }
 
+/** Будь-яке посилання (сторінка Pinterest, сайт, коротке посилання) → пряма адреса картинки. */
+export function resolveImage(url: string) {
+  return request<{ imageUrl: string; source: "direct" | "page" }>("/images/resolve", json("POST", { url }));
+}
+
 // ---------- Модерація (адмін) ----------
 
 export function approveMeetup(id: string) {

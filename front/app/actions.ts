@@ -87,8 +87,8 @@ export async function devSignOut() {
  * share.google/… → адреса картинки, на яку воно веде; null, якщо там не картинка.
  * Йдемо за редиректами вручну й лише в межах Google, щоб не стукати на довільні адреси.
  */
-export async function resolveImageUrl(link: string): Promise<string | null> {
-  if (!isGoogleShareLink(link)) return null;
+/** share.google → google.com/imgres?imgurl=… за редиректами (лише в межах Google). */
+async function resolveGoogleShare(link: string): Promise<string | null> {
   let url = link;
   try {
     for (let hop = 0; hop < 5; hop++) {
@@ -105,9 +105,26 @@ export async function resolveImageUrl(link: string): Promise<string | null> {
       if (!isGoogleUrl(url)) return null;
     }
   } catch (error) {
-    console.error("resolveImageUrl", error);
+    console.error("resolveGoogleShare", error);
   }
   return null;
+}
+
+/**
+ * Будь-яке посилання → адреса самої картинки: share.google розгортаємо тут, решту
+ * (Pinterest, сторінки сайтів, короткі посилання, пряма картинка) — розпізнає API.
+ * null — картинку не знайшли.
+ */
+export async function resolveImageUrl(link: string): Promise<string | null> {
+  if (isGoogleShareLink(link)) {
+    const target = await resolveGoogleShare(link);
+    if (target) return target;
+  }
+  try {
+    return (await api.resolveImage(link)).imageUrl;
+  } catch {
+    return null;
+  }
 }
 
 /** Створює (id = null) або оновлює подію і переходить на її сторінку. */
