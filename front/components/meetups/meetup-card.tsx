@@ -59,6 +59,8 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
     <article
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-white/5",
+        // Завершена — вся картка чорно-біла, разом з плашками й аватаром.
+        inactive && "grayscale",
         openable &&
           "transition-colors hover:ring-white/10 focus-within:ring-2 focus-within:ring-ring",
       )}
@@ -67,9 +69,9 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
         meetup={meetup}
         sizes="(min-width: 1280px) 30rem, (min-width: 768px) 45vw, 100vw"
         className="aspect-video w-full"
-        // Завершена — картинка ледь сіра (10%), плашки поверх лишаються кольоровими.
+        // Притемнюємо яскравістю, не прозорістю: інакше просвічують градієнт і емодзі під фото.
         imageClassName={cn(
-          inactive && "grayscale-10",
+          inactive && "brightness-60",
           openable && "transition-transform duration-500 group-hover:scale-[1.03]",
         )}
       >
@@ -94,7 +96,7 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
         </div>
       </MeetupCover>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className={cn("flex flex-1 flex-col gap-2 p-4", inactive && "opacity-60")}>
         <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
           {openable ? (
             <Link href={`/meetups/${meetup.id}`} className="outline-none">

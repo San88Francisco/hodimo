@@ -102,11 +102,15 @@ export function loadStyle(): Promise<StyleSpecification> {
  */
 export async function createMap(
   container: HTMLElement,
-  options: { center: GeoPoint; zoom: number; interactive?: boolean },
+  options: { center: GeoPoint; zoom: number; interactive?: boolean; zoomAroundCenter?: boolean },
   signal: AbortSignal,
 ) {
   const [maplibre, spec] = await Promise.all([loadMapLibre(), loadStyle()]);
   if (signal.aborted) return null;
+  // Зміну розміру контейнера MapLibre 6 відстежує сама (і одразу перемальовує). Свій
+  // ResizeObserver з голим map.resize() не додаємо: той очищує полотно без перемальовки —
+  // карта лишалась порожньою, щойно під нею мінялась висота панелі з адресою.
+  const around = options.zoomAroundCenter ? { around: "center" as const } : true;
   const map = new maplibre.Map({
     container,
     style: spec,
@@ -116,15 +120,14 @@ export async function createMap(
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,
+    touchZoomRotate: around,
+    scrollZoom: around,
     maxPitch: 0,
     attributionControl: { compact: true },
   });
   map.touchZoomRotate.disableRotation();
   map.keyboard.disableRotation();
-  // MapLibre стежить лише за вікном; контейнер у діалозі ще добудовується — підлаштовуємось.
-  const resize = new ResizeObserver(() => map.resize());
-  resize.observe(container);
-  map.once("remove", () => resize.disconnect());
+  tameZoomInertia(map);
   // Підпис джерел на старті розгорнутий і закриває пів низу — згортаємо в кнопку «i».
   map.once("load", () => {
     const attribution = container.querySelector(".maplibregl-ctrl-attrib");
@@ -132,6 +135,26 @@ export async function createMap(
     attribution?.removeAttribute("open");
   });
   return { maplibre, map };
+}
+
+/** Скільки рівнів зуму карта може «докрутити» сама після щипка. */
+const MAX_ZOOM_INERTIA = 0.5;
+
+/**
+ * Інерцію після жесту MapLibre рахує за останні ~60 мс, а в кінці швидкого щипка зум
+ * росте найшвидше — карта докручувала ще 3–5 рівнів, і точка відлітала геть.
+ * Інерційний рух — єдиний easeTo з noMoveStart; йому обрізаємо зум, панорамування не чіпаємо.
+ */
+function tameZoomInertia(map: MapInstance) {
+  const easeTo = map.easeTo.bind(map);
+  map.easeTo = (options, eventData) => {
+    if (options.noMoveStart && options.zoom !== undefined) {
+      const current = map.getZoom();
+      const delta = Math.max(-MAX_ZOOM_INERTIA, Math.min(MAX_ZOOM_INERTIA, options.zoom - current));
+      options = { ...options, zoom: current + delta };
+    }
+    return easeTo(options, eventData);
+  };
 }
 
 /** Червоний пін, як у Google Maps; вістря — точно в координаті (anchor: bottom). */

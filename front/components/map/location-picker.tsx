@@ -87,7 +87,8 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
 
     void createMap(
       containerRef.current!,
-      { center: initial ?? DEFAULT_CENTER, zoom: initial ? 16 : 12 },
+      // Пін стоїть по центру — зум теж довкола центру, інакше щипок зсуває місце з-під піна.
+      { center: initial ?? DEFAULT_CENTER, zoom: initial ? 16 : 12, zoomAroundCenter: true },
       controller.signal,
     ).then((created) => {
       if (!created) return;
