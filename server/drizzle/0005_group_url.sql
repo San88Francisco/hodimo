@@ -1,0 +1,1 @@
+ALTER TABLE "meetups" ADD COLUMN "group_url" text;

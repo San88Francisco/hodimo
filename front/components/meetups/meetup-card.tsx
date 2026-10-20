@@ -4,6 +4,7 @@ import { CalendarDays, Check, Clock3, History, MapPin, Users, XCircle } from "lu
 import { CardDeleteButton } from "@/components/meetups/card-delete-button";
 import { CardDescription } from "@/components/meetups/card-description";
 import { MeetupCover, OverlayBadge, PersonAvatar } from "@/components/meetups/meetup-cover";
+import { CopyLinkButton } from "@/components/meetups/copy-link-button";
 import { formatDayLabel, formatTime, STATUS_LABEL, type Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,8 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
 export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmin?: boolean }) {
   const inactive = meetup.isPast;
   const openable = !inactive || isAdmin;
+  // Непідтверджену подію друг усе одно не відкриє.
+  const shareable = !inactive && meetup.status === "approved";
 
   return (
     <article
@@ -85,7 +88,10 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
           </OverlayBadge>
         </div>
         <StateBadge meetup={meetup} />
-        {isAdmin && <CardDeleteButton meetupId={meetup.id} className="absolute right-3 bottom-3" />}
+        <div className="absolute right-3 bottom-3 z-10 flex items-center gap-2">
+          {shareable && <CopyLinkButton meetupId={meetup.id} className="size-9" />}
+          {isAdmin && <CardDeleteButton meetupId={meetup.id} />}
+        </div>
       </MeetupCover>
 
       <div className="flex flex-1 flex-col gap-2 p-4">

@@ -59,10 +59,14 @@ export type Meetup = {
   rejectReason: string | null;
   city: string;
   place: string;
+  /** Точка на карті, якщо організатор її позначив. */
+  location: GeoPoint | null;
   imageUrl: string | null;
+  /** Чат події (Telegram-група тощо). */
+  groupUrl: string | null;
   organizer: Person;
   viewer: { isJoined: boolean; isOrganizer: boolean; canManage: boolean };
-  /** Лише для організатора й адмінів, іншим — null. */
+  /** Активної події — усім; іншої — лише організатору й адмінам, решті null. */
   participants?: Person[] | null;
   createdAt: string;
 };
@@ -78,7 +82,24 @@ export type MeetupPayload = {
   place: string;
   /** Посилання на картинку з інтернету — сам файл ми не зберігаємо. */
   imageUrl: string | null;
+  location: GeoPoint | null;
+  groupUrl: string | null;
 };
+
+export type GeoPoint = { lat: number; lng: number };
+
+/** Відкриває точку в Google Картах — застосунком на телефоні або в браузері. */
+export function mapsUrl({ lat, lng }: GeoPoint) {
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
+/** `t.me/club`, `@club` → `https://t.me/club`; решту лишаємо як є. */
+export function normalizeGroupUrl(value: string) {
+  const link = value.trim();
+  if (/^@[\w]{4,}$/.test(link)) return `https://t.me/${link.slice(1)}`;
+  if (/^(t\.me|telegram\.me|chat\.whatsapp\.com)\//i.test(link)) return `https://${link}`;
+  return link;
+}
 
 /** Що поточний відвідувач може робити. */
 export type Access = "guest" | "blocked" | Role;

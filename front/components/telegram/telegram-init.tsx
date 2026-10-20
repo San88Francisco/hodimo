@@ -12,6 +12,12 @@ type TelegramWebApp = {
   initDataUnsafe: { user?: { id: number } };
   ready: () => void;
   expand: () => void;
+  /** t.me-посилання всередині Telegram, без браузера. */
+  openTelegramLink?: (url: string) => void;
+  openLink?: (url: string) => void;
+  /** Bot API 7.7+: свайп униз не згортає застосунок (потрібно, коли тягнемо карту). */
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
 };
 
 declare global {

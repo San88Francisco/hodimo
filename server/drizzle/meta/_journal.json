@@ -36,6 +36,20 @@
       "when": 1792418706464,
       "tag": "0004_moderation",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792507841820,
+      "tag": "0005_group_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792509088648,
+      "tag": "0006_meetup_location",
+      "breakpoints": true
     }
   ]
 }

@@ -36,13 +36,29 @@ const meetupFields = {
   city: z.string().trim().min(2, "Мінімум 2 символи").max(80),
   place: z.string().trim().min(2, "Мінімум 2 символи").max(120),
   imageUrl: z.url({ protocol: /^https?$/ }).nullable(),
+  /** Точка на карті; null — без неї. */
+  location: z
+    .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+    .nullable(),
+  groupUrl: z
+    .url({ protocol: /^https$/, error: "Посилання має починатися з https://" })
+    .max(300, "Максимум 300 символів")
+    .nullable(),
 };
 
 export const CreateMeetupSchema = z.object({
   ...meetupFields,
   description: meetupFields.description.default(""),
   imageUrl: meetupFields.imageUrl.default(null),
+  location: meetupFields.location.default(null),
+  groupUrl: meetupFields.groupUrl.default(null),
 });
+
+/** `location` з API → колонки lat/lng; undefined — поле не чіпаємо. */
+function locationColumns(location: { lat: number; lng: number } | null | undefined) {
+  if (location === undefined) return {};
+  return { lat: location?.lat ?? null, lng: location?.lng ?? null };
+}
 
 export const UpdateMeetupSchema = z
   .object(meetupFields)
@@ -157,7 +173,10 @@ function toDto(row: MeetupRow, viewer: User | null) {
     rejectReason: manage ? meetup.rejectReason : null,
     city: meetup.city,
     place: meetup.place,
+    location:
+      meetup.lat !== null && meetup.lng !== null ? { lat: meetup.lat, lng: meetup.lng } : null,
     imageUrl: meetup.imageUrl,
+    groupUrl: meetup.groupUrl,
     organizer,
     viewer: {
       isJoined: row.isJoined,
@@ -221,14 +240,19 @@ export async function countPending() {
   return row?.value ?? 0;
 }
 
-/** Деталі події. Список учасників бачать лише автор і адміни; непідтверджену — тільки вони. */
+/**
+ * Деталі події; непідтверджену бачать лише автор і адміни.
+ * Список учасників активної події відкритий усім, зокрема гостям; решту — лише автору й адмінам.
+ */
 export async function getMeetup(id: string, viewer: User | null) {
   const [row] = await selectMeetups(viewer).where(eq(meetups.id, id)).limit(1);
   if (!row || !canSee(viewer, row.meetup)) throw notFound("Подію не знайдено");
   const dto = toDto(row, viewer);
 
+  const isActive = dto.status === "approved" && !dto.isPast;
   const canSeeParticipants =
-    viewer && !viewer.isBlocked && (dto.viewer.isOrganizer || isAdmin(viewer));
+    (isActive && !viewer?.isBlocked) ||
+    (viewer && !viewer.isBlocked && (dto.viewer.isOrganizer || isAdmin(viewer)));
   const participantList = canSeeParticipants
     ? await db()
         .select(personFields)
@@ -258,12 +282,15 @@ async function directImage(url: string | null | undefined) {
 /** Подію користувача — на розгляд; подію адміна — одразу всім. */
 export async function createMeetup(user: User, input: z.infer<typeof CreateMeetupSchema>) {
   await requireActiveCategory(input.categoryId);
-  input = { ...input, imageUrl: await directImage(input.imageUrl) ?? null };
+  const { location, ...fields } = input;
+  const imageUrl = (await directImage(fields.imageUrl)) ?? null;
   const id = await db().transaction(async (tx) => {
     const [meetup] = await tx
       .insert(meetups)
       .values({
-        ...input,
+        ...fields,
+        ...locationColumns(location),
+        imageUrl,
         organizerId: user.id,
         status: user.role === "admin" ? "approved" : "pending",
       })
@@ -305,9 +332,14 @@ export async function updateMeetup(user: User, id: string, input: z.infer<typeof
       throw conflict(`Уже записалося ${taken} — місць не може бути менше`);
     }
     const resubmit = meetup.status === "rejected" && user.role !== "admin";
+    const { location, ...fields } = input;
     await tx
       .update(meetups)
-      .set({ ...input, ...(resubmit && { status: "pending" as const, rejectReason: null }) })
+      .set({
+        ...fields,
+        ...locationColumns(location),
+        ...(resubmit && { status: "pending" as const, rejectReason: null }),
+      })
       .where(eq(meetups.id, id));
   });
   return getMeetup(id, user);

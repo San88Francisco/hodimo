@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Check, ImageOff, Minus, Plus } from "lucide-react";
+import { Check, ImageOff, MapPin, Minus, Plus } from "lucide-react";
 import Image from "next/image";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,8 @@ import { z } from "zod";
 
 import { resolveImageUrl, saveMeetup } from "@/app/actions";
 import { BottomBar } from "@/components/layout/bottom-bar";
+import { LocationPicker } from "@/components/map/location-picker";
+import { MapPreview } from "@/components/map/map-preview";
 import { DatePickerChip } from "@/components/meetups/date-picker-chip";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -20,6 +22,7 @@ import {
   fromDateTimeInputs,
   isoWeekday,
   localDayKey,
+  normalizeGroupUrl,
   toDateTimeInputs,
   type Category,
   type Meetup,
@@ -42,11 +45,18 @@ const FormSchema = z
       // null — без обмежень.
       .nullable(),
     description: z.string().trim().max(1000, "Максимум 1000 символів"),
+    location: z.object({ lat: z.number(), lng: z.number() }).nullable(),
     imageUrl: z.union([
       z.literal(""),
       z
         .url({ protocol: /^https?$/, error: "Встав посилання, що починається з https://" })
         .refine((value) => !isGoogleShareLink(value), "За цим посиланням Google не знайшлося картинки"),
+    ]),
+    groupUrl: z.union([
+      z.literal(""),
+      z
+        .url({ protocol: /^https$/, error: "Встав посилання, що починається з https://" })
+        .max(300, "Максимум 300 символів"),
     ]),
   })
   .superRefine((value, ctx) => {
@@ -74,7 +84,9 @@ function defaultsFor(meetup?: Meetup): FormValues {
       city: "Познань",
       capacity: 6,
       description: "",
+      location: null,
       imageUrl: "",
+      groupUrl: "",
     };
   }
   return {
@@ -85,7 +97,9 @@ function defaultsFor(meetup?: Meetup): FormValues {
     city: meetup.city,
     capacity: meetup.capacity,
     description: meetup.description,
+    location: meetup.location,
     imageUrl: meetup.imageUrl ?? "",
+    groupUrl: meetup.groupUrl ?? "",
   };
 }
 
@@ -271,7 +285,8 @@ export function MeetupForm({
       ? [...categories, meetup.category]
       : categories;
 
-  const { register, control, handleSubmit, setError, setValue, formState } =
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const { register, control, handleSubmit, setError, setValue, getValues, formState } =
     useForm<FormValues>({
       resolver: zodResolver(FormSchema),
       defaultValues: defaults,
@@ -321,12 +336,13 @@ export function MeetupForm({
   }, [imageUrl, checkedLinks, setValue]);
 
   const onSubmit = handleSubmit((values) => {
-    const { date, time, imageUrl, ...rest } = values;
+    const { date, time, imageUrl, groupUrl, ...rest } = values;
     startTransition(async () => {
       const result = await saveMeetup(meetup?.id ?? null, {
         ...rest,
         startsAt: fromDateTimeInputs(date, time),
         imageUrl: imageUrl || null,
+        groupUrl: groupUrl || null,
       });
       // При успіху action робить redirect, тож далі обробляємо лише помилку.
       if (!result) return;
@@ -449,6 +465,65 @@ export function MeetupForm({
             />
           </div>
           <FieldError errors={[errors.place, errors.city]} />
+
+          <Controller
+            control={control}
+            name="location"
+            render={({ field }) => (
+              <>
+                {field.value ? (
+                  <div className="mt-1 flex flex-col gap-2">
+                    <MapPreview
+                      point={field.value}
+                      className="aspect-video overflow-hidden rounded-xl ring-1 ring-white/5"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="h-10 flex-1 rounded-full"
+                        onClick={() => setPickerOpen(true)}
+                      >
+                        <MapPin aria-hidden />
+                        Змінити точку
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-10 rounded-full px-4 text-muted-foreground"
+                        onClick={() => field.onChange(null)}
+                      >
+                        Прибрати
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="mt-1 flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed border-input text-[15px] font-medium text-muted-foreground outline-none transition-colors hover:border-ring hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    <MapPin className="size-4 text-primary" aria-hidden />
+                    Позначити на карті
+                    <span className="font-normal">— необов&apos;язково</span>
+                  </button>
+                )}
+                <LocationPicker
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  initial={field.value}
+                  city={getValues("city")}
+                  query={field.value ? "" : getValues("place")}
+                  onPick={(point, place) => {
+                    field.onChange(point);
+                    if (place && !getValues("place").trim()) {
+                      setValue("place", place.title.slice(0, 120), { shouldValidate: true });
+                    }
+                  }}
+                />
+              </>
+            )}
+          />
         </Field>
 
         <Controller
@@ -508,6 +583,27 @@ export function MeetupForm({
             {...register("description")}
           />
           <FieldError errors={[errors.description]} />
+        </Field>
+
+        <Field data-invalid={invalid("groupUrl")}>
+          <FieldLabel htmlFor="groupUrl" className="text-base">
+            Група події <span className="font-normal text-muted-foreground">— необов&apos;язково</span>
+          </FieldLabel>
+          <Input
+            id="groupUrl"
+            type="url"
+            inputMode="url"
+            autoComplete="off"
+            className={INPUT}
+            placeholder="https://t.me/…"
+            aria-invalid={invalid("groupUrl")}
+            {...register("groupUrl", { setValueAs: normalizeGroupUrl })}
+          />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Посилання-запрошення в Telegram-групу чи інший чат — на сторінці події з&apos;явиться кнопка
+            «Приєднатися до групи».
+          </p>
+          <FieldError errors={[errors.groupUrl]} />
         </Field>
 
         <Field data-invalid={invalid("imageUrl")}>

@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -80,7 +81,12 @@ export const meetups = pgTable(
     capacity: integer("capacity"),
     city: varchar("city", { length: 80 }).notNull(),
     place: varchar("place", { length: 120 }).notNull(),
+    /** Точка на карті (необов'язкова): або обидві координати, або жодної. */
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
     imageUrl: text("image_url"),
+    /** Посилання на чат події (Telegram-група тощо) — кнопка «Приєднатися до групи». */
+    groupUrl: text("group_url"),
     organizerId: uuid("organizer_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -97,6 +103,10 @@ export const meetups = pgTable(
     check(
       "meetups_capacity_check",
       sql`${table.capacity} is null or ${table.capacity} between 2 and 100`,
+    ),
+    check(
+      "meetups_location_check",
+      sql`(${table.lat} is null and ${table.lng} is null) or (${table.lat} between -90 and 90 and ${table.lng} between -180 and 180)`,
     ),
   ],
 ).enableRLS();

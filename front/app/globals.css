@@ -149,3 +149,16 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+
+/*
+ * Карта (MapLibre). isolate тримає z-index карти всередині; фон — як земля на карті
+ * (світлий, у стилі Google), щоб поки вантажаться тайли не блимало темним.
+ */
+.map-surface {
+  isolation: isolate;
+  background: #f5f6f7;
+}
+
+.map-surface .maplibregl-ctrl-attrib.maplibregl-compact {
+  font-size: 10px;
+}

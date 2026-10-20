@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { LocationButton } from "@/components/map/location-view";
+import { GroupLink } from "@/components/meetups/group-link";
+import { CopyLinkButton } from "@/components/meetups/copy-link-button";
 import { MeetupActions } from "@/components/meetups/meetup-actions";
 import { MeetupCover, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { buttonVariants } from "@/components/ui/button";
@@ -185,6 +188,12 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           >
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
+          {meetup.status === "approved" && !meetup.isPast && (
+            <CopyLinkButton
+              meetupId={meetup.id}
+              className="absolute top-[max(env(safe-area-inset-top),0.75rem)] right-3"
+            />
+          )}
         </MeetupCover>
 
         <header className="flex flex-col gap-2.5">
@@ -207,6 +216,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </InfoRow>
           <InfoRow icon={MapPin} label="Де">
             {meetup.city}, {meetup.place}
+            {meetup.location && <LocationButton point={meetup.location} label={meetup.place} />}
           </InfoRow>
           <InfoRow icon={Users} label="Учасники">
             {capacity === null ? (
@@ -234,6 +244,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </InfoRow>
         </section>
 
+        {meetup.groupUrl && !meetup.isPast && <GroupLink href={meetup.groupUrl} />}
         {meetup.description && (
           <section className="flex flex-col gap-2">
             <h2 className="text-lg font-semibold tracking-tight">Про подію</h2>
