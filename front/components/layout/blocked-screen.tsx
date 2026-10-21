@@ -1,10 +1,12 @@
 import { Ban } from "lucide-react";
 
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
+import { getT } from "@/lib/i18n/server";
 import { fullName, type Me } from "@/lib/meetups";
 
 /** Заблокований не бачить подій: замість будь-якої сторінки — це. */
-export function BlockedScreen({ me }: { me: Me }) {
+export async function BlockedScreen({ me }: { me: Me }) {
+  const { t } = await getT();
   return (
     <div className="flex min-h-[80dvh] flex-col items-center justify-center gap-4 px-6 text-center">
       <div className="relative">
@@ -14,11 +16,11 @@ export function BlockedScreen({ me }: { me: Me }) {
         </span>
       </div>
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-bold tracking-tight">Акаунт заблоковано</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t.access.blockedTitle}</h1>
         <p className="text-sm text-muted-foreground">{fullName(me)}</p>
       </div>
       <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-        Адміністратор обмежив тобі доступ до подій. Якщо це помилка — напиши адміністраторам.
+        {t.access.blockedBody}
       </p>
     </div>
   );

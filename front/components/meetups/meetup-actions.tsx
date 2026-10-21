@@ -8,6 +8,7 @@ import { moderateMeetup, removeMeetup, setJoined } from "@/app/actions";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/lib/i18n/client";
 import type { Access, Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { t } = useT();
   const { viewer } = meetup;
 
   function run(action: () => Promise<{ message: string } | null | undefined>) {
@@ -39,7 +41,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
       <BottomBar className="lg:border-t lg:border-border lg:pt-6">
         {error && <ErrorLine message={error} />}
         <div className="flex items-center gap-3">
-          <p className="min-w-0 flex-1 text-sm font-medium lg:flex-none">Видалити подію?</p>
+          <p className="min-w-0 flex-1 text-sm font-medium lg:flex-none">{t.actions.deleteQuestion}</p>
           <Button
             variant="ghost"
             size="lg"
@@ -47,7 +49,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
             disabled={pending}
             onClick={() => setConfirmingDelete(false)}
           >
-            Ні
+            {t.common.no}
           </Button>
           <Button
             variant="destructive"
@@ -56,7 +58,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
             disabled={pending}
             onClick={() => run(() => removeMeetup(meetup.id))}
           >
-            {pending ? "Видаляю…" : "Так, видалити"}
+            {pending ? t.common.deleting : t.actions.yesDelete}
           </Button>
         </div>
       </BottomBar>
@@ -69,9 +71,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
       <BottomBar className="lg:border-t lg:border-border lg:pt-6">
         {error && <ErrorLine message={error} />}
         <div className="flex items-center gap-3">
-          <p className="min-w-0 flex-1 text-sm text-muted-foreground lg:flex-none">
-            Подія вже відбулася
-          </p>
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground lg:flex-none">{t.meetup.pastTitle}</p>
           {viewer.canManage && (
             <Button
               variant="destructive"
@@ -80,7 +80,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
               onClick={() => setConfirmingDelete(true)}
             >
               <Trash2 aria-hidden />
-              Видалити
+              {t.common.delete}
             </Button>
           )}
         </div>
@@ -101,7 +101,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
               autoFocus
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Причина (необов'язково) — її побачить автор"
+              placeholder={t.common.rejectReasonPlaceholder}
               maxLength={300}
               className="h-11 rounded-xl text-base"
             />
@@ -113,7 +113,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
                 disabled={pending}
                 onClick={() => setRejecting(false)}
               >
-                Назад
+                {t.common.back}
               </Button>
               <Button
                 variant="destructive"
@@ -122,7 +122,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
                 disabled={pending}
                 onClick={() => run(() => moderateMeetup(meetup.id, "reject", reason.trim() || undefined))}
               >
-                {pending ? "Відхиляю…" : "Відхилити"}
+                {pending ? t.common.rejecting : t.common.reject}
               </Button>
             </div>
           </div>
@@ -145,7 +145,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
                   onClick={() => setRejecting(true)}
                 >
                   <X aria-hidden />
-                  Відхилити
+                  {t.common.reject}
                 </Button>
               )}
               <Button
@@ -155,7 +155,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
                 onClick={() => run(() => moderateMeetup(meetup.id, "approve"))}
               >
                 <Check aria-hidden />
-                {pending ? "Схвалюю…" : "Схвалити"}
+                {pending ? t.common.approving : t.common.approve}
               </Button>
             </>
           ) : (
@@ -164,14 +164,14 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
               className={cn(buttonVariants({ size: "lg" }), BIG, "flex-1 px-5 lg:flex-none")}
             >
               <Pencil aria-hidden />
-              {meetup.status === "rejected" ? "Виправити й надіслати знову" : "Редагувати"}
+              {meetup.status === "rejected" ? t.actions.fixAndResend : t.common.edit}
             </Link>
           )}
           {viewer.canManage && (
             <Button
               variant="destructive"
               size="lg"
-              aria-label="Видалити"
+              aria-label={t.common.delete}
               className="size-12 shrink-0 rounded-full lg:size-11"
               onClick={() => setConfirmingDelete(true)}
             >
@@ -188,7 +188,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
       {!viewer.isOrganizer && (
         <Link
           href={`/meetups/${meetup.id}/edit`}
-          aria-label="Редагувати"
+          aria-label={t.common.edit}
           className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "size-12 shrink-0 rounded-full lg:size-11")}
         >
           <Pencil className="size-5 lg:size-4" aria-hidden />
@@ -197,7 +197,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
       <Button
         variant="destructive"
         size="lg"
-        aria-label="Видалити"
+        aria-label={t.common.delete}
         className="size-12 shrink-0 rounded-full lg:size-11"
         onClick={() => setConfirmingDelete(true)}
       >
@@ -216,11 +216,11 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
         className={cn(buttonVariants({ size: "lg" }), BIG, "flex-1 px-5 lg:flex-none")}
       >
         <Pencil aria-hidden />
-        Редагувати
+        {t.common.edit}
       </Link>
     );
   } else if (viewer.isJoined) {
-    hint = access === "blocked" ? "Акаунт заблоковано, але скасувати запис можна" : null;
+    hint = access === "blocked" ? t.actions.blockedCanCancel : null;
     primary = (
       <Button
         variant="secondary"
@@ -230,15 +230,15 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
         onClick={() => run(() => setJoined(meetup.id, false))}
       >
         <Check className="text-primary" aria-hidden />
-        {pending ? "Скасовую…" : "Ти йдеш · Скасувати"}
+        {pending ? t.actions.cancelling : t.actions.goingCancel}
       </Button>
     );
   } else {
     const blockedReason =
       access === "guest"
-        ? "Щоб записатися, відкрий застосунок у Telegram"
+        ? t.actions.guestHint
         : access === "blocked"
-          ? "Твій акаунт заблоковано"
+          ? t.actions.blockedHint
           : null;
     hint = blockedReason;
     primary = (
@@ -248,7 +248,7 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
         disabled={pending || meetup.isFull || blockedReason !== null}
         onClick={() => run(() => setJoined(meetup.id, true))}
       >
-        {meetup.isFull ? "Місць немає" : pending ? "Записую…" : "Записатися"}
+        {meetup.isFull ? t.actions.noSpots : pending ? t.actions.joining : t.actions.join}
       </Button>
     );
   }

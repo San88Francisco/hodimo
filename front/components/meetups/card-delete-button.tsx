@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 
 import { removeMeetupInPlace } from "@/app/actions";
+import { useT } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 /** Кнопка видалення на обкладинці картки (для адміна): спершу питає, потім видаляє. */
@@ -11,6 +12,7 @@ export function CardDeleteButton({ meetupId, className }: { meetupId: string; cl
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { t } = useT();
 
   function remove() {
     setError(null);
@@ -26,7 +28,7 @@ export function CardDeleteButton({ meetupId, className }: { meetupId: string; cl
     return (
       <button
         type="button"
-        aria-label="Видалити подію"
+        aria-label={t.card.deleteMeetup}
         onClick={() => setConfirming(true)}
         className={cn(
           "z-10 grid size-9 place-items-center rounded-full bg-black/65 text-white backdrop-blur-sm outline-none hover:bg-destructive focus-visible:ring-2 focus-visible:ring-ring",
@@ -46,7 +48,7 @@ export function CardDeleteButton({ meetupId, className }: { meetupId: string; cl
       )}
     >
       <span role={error ? "alert" : undefined} className={cn(error && "text-red-300")}>
-        {error ?? "Видалити?"}
+        {error ?? t.card.deleteConfirm}
       </span>
       <button
         type="button"
@@ -54,7 +56,7 @@ export function CardDeleteButton({ meetupId, className }: { meetupId: string; cl
         onClick={() => setConfirming(false)}
         className="h-7 rounded-full px-2.5 hover:bg-white/10 disabled:opacity-50"
       >
-        Ні
+        {t.common.no}
       </button>
       <button
         type="button"
@@ -62,7 +64,7 @@ export function CardDeleteButton({ meetupId, className }: { meetupId: string; cl
         onClick={remove}
         className="h-7 rounded-full bg-destructive px-3 hover:bg-destructive/90 disabled:opacity-50"
       >
-        {pending ? "Видаляю…" : "Так"}
+        {pending ? t.common.deleting : t.common.yes}
       </button>
     </div>
   );

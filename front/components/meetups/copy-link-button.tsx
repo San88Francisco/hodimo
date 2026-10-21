@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Link2 } from "lucide-react";
 
+import { useT } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 async function copyText(text: string) {
@@ -26,6 +27,7 @@ async function copyText(text: string) {
 /** Кнопка-іконка поверх обкладинки: копіює посилання на подію, 2 секунди показує галочку. */
 export function CopyLinkButton({ meetupId, className }: { meetupId: string; className?: string }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useT();
 
   useEffect(() => {
     if (!copied) return;
@@ -37,7 +39,7 @@ export function CopyLinkButton({ meetupId, className }: { meetupId: string; clas
     if (await copyText(`${window.location.origin}/meetups/${meetupId}`)) setCopied(true);
   }
 
-  const label = copied ? "Посилання скопійовано" : "Скопіювати посилання на подію";
+  const label = copied ? t.card.linkCopied : t.card.copyLink;
 
   return (
     <button
@@ -53,7 +55,7 @@ export function CopyLinkButton({ meetupId, className }: { meetupId: string; clas
     >
       {copied ? <Check className="size-4.5" aria-hidden /> : <Link2 className="size-4.5" aria-hidden />}
       <span className="sr-only" aria-live="polite">
-        {copied ? "Посилання скопійовано" : ""}
+        {copied ? t.card.linkCopied : ""}
       </span>
     </button>
   );

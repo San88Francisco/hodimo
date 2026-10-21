@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import {
   CalendarDays,
+  ChartColumn,
   ChevronRight,
   ClipboardCheck,
   Menu,
@@ -18,8 +19,10 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
-import { accessOf, canCreateMeetups, fullName, ROLE_LABEL, type Me } from "@/lib/meetups";
+import { useT } from "@/lib/i18n/client";
+import { accessOf, canCreateMeetups, fullName, type Me } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 type Item = {
@@ -36,11 +39,12 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const access = accessOf(me);
+  const { t } = useT();
 
   const main: Item[] = [
     {
       href: "/",
-      label: "Події",
+      label: t.nav.meetups,
       icon: CalendarDays,
       active: (path) => path === "/" || (path.startsWith("/meetups") && path !== "/meetups/new"),
     },
@@ -48,7 +52,7 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
       ? [
           {
             href: `/users/${me.id}`,
-            label: "Мій профіль",
+            label: t.common.myProfile,
             icon: UserRound,
             active: (path: string) => path === `/users/${me.id}`,
           },
@@ -61,17 +65,23 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
       ? [
           {
             href: "/admin/moderation",
-            label: "Модерація",
+            label: t.nav.moderation,
             icon: ClipboardCheck,
             active: (p) => p.startsWith("/admin/moderation"),
             badge: pendingCount,
           },
-          { href: "/admin/users", label: "Користувачі", icon: Users, active: (p) => p.startsWith("/admin/users") },
+          { href: "/admin/users", label: t.nav.users, icon: Users, active: (p) => p.startsWith("/admin/users") },
           {
             href: "/admin/categories",
-            label: "Категорії",
+            label: t.nav.categories,
             icon: Shapes,
             active: (p) => p.startsWith("/admin/categories"),
+          },
+          {
+            href: "/admin/analytics",
+            label: t.nav.analytics,
+            icon: ChartColumn,
+            active: (p) => p.startsWith("/admin/analytics"),
           },
         ]
       : [];
@@ -105,7 +115,7 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger
-        aria-label="Меню"
+        aria-label={t.common.menu}
         className="-ml-2 grid size-10 shrink-0 place-items-center rounded-full text-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
       >
         <Menu className="size-6" aria-hidden />
@@ -122,10 +132,10 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
         >
           <div className="flex items-center justify-between px-2">
             <Dialog.Title>
-              <Logo className="text-xl" markClassName="size-10" />
+              <Logo className="text-xl" markClassName="h-10" />
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Закрити меню"
+              aria-label={t.nav.closeMenu}
               className="grid size-10 place-items-center rounded-full text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="size-5" aria-hidden />
@@ -142,23 +152,23 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-semibold">{fullName(me)}</p>
                 <p className={cn("text-xs", me.isBlocked ? "text-destructive" : "text-muted-foreground")}>
-                  {me.isBlocked ? "Заблоковано" : ROLE_LABEL[me.role]}
+                  {me.isBlocked ? t.common.blocked : t.roles[me.role]}
                 </p>
               </div>
               <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
             </Link>
           ) : (
             <p className="rounded-2xl bg-card p-3 text-sm leading-relaxed text-muted-foreground ring-1 ring-white/5">
-              Ти переглядаєш як гість. Відкрий застосунок у Telegram, щоб записуватись на події.
+              {t.access.guestShort}
             </p>
           )}
 
-          <nav aria-label="Меню" className="flex flex-1 flex-col gap-5 overflow-y-auto">
+          <nav aria-label={t.common.menu} className="flex flex-1 flex-col gap-5 overflow-y-auto">
             <ul className="flex flex-col gap-1">{main.map(renderItem)}</ul>
 
             {admin.length > 0 && (
               <div className="flex flex-col gap-1">
-                <p className="px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">Адмінка</p>
+                <p className="px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">{t.common.admin}</p>
                 <ul className="flex flex-col gap-1">{admin.map(renderItem)}</ul>
               </div>
             )}
@@ -170,6 +180,8 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
             )}
           </nav>
 
+          <LanguageSwitcher />
+
           {canCreateMeetups(access) && (
             <Link
               href="/meetups/new"
@@ -177,7 +189,7 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
               className="flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-[15px] font-semibold text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Plus className="size-5" aria-hidden />
-              Створити подію
+              {t.common.createMeetup}
             </Link>
           )}
         </Dialog.Popup>

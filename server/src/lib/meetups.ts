@@ -8,6 +8,7 @@ import { requireActiveCategory, toCategoryDto } from "@/lib/categories";
 import { env } from "@/lib/env";
 import { resolveImageUrl } from "@/lib/image-resolve";
 import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
+import { announceMeetup } from "@/lib/notifications";
 
 const { categories, meetups, meetupParticipants: participants, users } = schema;
 
@@ -19,6 +20,7 @@ const { categories, meetups, meetupParticipants: participants, users } = schema;
  *   тоді вона знову йде на розгляд.
  * Подія, час старту якої минув, — «завершена»: з неї нічого не можна зробити, але вона назавжди
  * лишається в історії (стрічка показує лише майбутні).
+ * Коли подія вперше стає approved, бот анонсує її (див. notifications.ts).
  */
 
 // ---------- Валідація ----------
@@ -299,6 +301,7 @@ export async function createMeetup(user: User, input: z.infer<typeof CreateMeetu
     await tx.insert(participants).values({ meetupId: meetup!.id, userId: user.id });
     return meetup!.id;
   });
+  if (user.role === "admin") announceMeetup(id);
   return getMeetup(id, user);
 }
 
@@ -397,6 +400,7 @@ export async function approveMeetup(admin: User, id: string) {
     .update(meetups)
     .set({ status: "approved", rejectReason: null })
     .where(eq(meetups.id, id));
+  announceMeetup(id);
   return getMeetup(id, admin);
 }
 

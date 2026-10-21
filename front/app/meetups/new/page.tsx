@@ -4,27 +4,31 @@ import { AccessNotice } from "@/components/layout/access-notice";
 import { PageHeader } from "@/components/layout/page-header";
 import { MeetupForm } from "@/components/meetups/meetup-form";
 import { getMe, listCategories } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 import { accessOf, canCreateMeetups } from "@/lib/meetups";
 
-export const metadata: Metadata = { title: "Нова подія — Ходімо" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.form.newTitle} — Ходімо` };
+}
 
 export default async function NewMeetupPage() {
-  const [me, categories] = await Promise.all([getMe(), listCategories()]);
+  const [me, categories, { t }] = await Promise.all([getMe(), listCategories(), getT()]);
   const access = accessOf(me);
   const canCreate = canCreateMeetups(access);
 
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        title="Нова подія"
-        description="Кілька полів — і після перевірки адміном компанія знайдеться."
-        back={{ href: "/", label: "Усі події" }}
+        title={t.form.newTitle}
+        description={t.form.newDescription}
+        back={{ href: "/", label: t.common.allMeetups }}
       />
       {canCreate ? (
         <MeetupForm
           categories={categories}
           // Подію адміна видно одразу; подію користувача спершу перевіряє адмін.
-          submitLabel={access === "admin" ? "Створити подію" : "Надіслати на розгляд"}
+          submitLabel={access === "admin" ? t.common.createMeetup : t.form.submitReview}
         />
       ) : (
         <AccessNotice access={access} />

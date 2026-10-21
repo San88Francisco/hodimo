@@ -7,7 +7,8 @@ import { Ban, LoaderCircle } from "lucide-react";
 import { editUser } from "@/app/actions";
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
 import { Button } from "@/components/ui/button";
-import { fullName, ROLE_LABEL, type Me, type Role } from "@/lib/meetups";
+import { useT } from "@/lib/i18n/client";
+import { fullName, type Me, type Role } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 const ROLES: Role[] = ["user", "admin"];
@@ -19,6 +20,7 @@ const ROLES: Role[] = ["user", "admin"];
 export function UserRow({ user, isSelf }: { user: Me; isSelf: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { t } = useT();
 
   function update(patch: Partial<Pick<Me, "role" | "isBlocked">>) {
     setError(null);
@@ -39,10 +41,10 @@ export function UserRow({ user, isSelf }: { user: Me; isSelf: boolean }) {
             </Link>
             {user.isBlocked && (
               <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-medium text-destructive">
-                заблоковано
+                {t.admin.blockedBadge}
               </span>
             )}
-            {isSelf && <span className="text-xs font-normal text-muted-foreground">це ти</span>}
+            {isSelf && <span className="text-xs font-normal text-muted-foreground">{t.admin.itsYou}</span>}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {user.username ? `@${user.username} · ` : ""}ID {user.telegramId}
@@ -53,14 +55,13 @@ export function UserRow({ user, isSelf }: { user: Me; isSelf: boolean }) {
 
       {isSelf || user.isRootAdmin ? (
         <p className="pl-13 text-xs text-muted-foreground">
-          {ROLE_LABEL[user.role]} ·{" "}
-          {user.isRootAdmin ? "головний адмін, змінюється лише в налаштуваннях сервера" : "свою роль змінювати не можна"}
+          {t.roles[user.role]} · {user.isRootAdmin ? t.admin.rootAdmin : t.admin.cantChangeSelf}
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2 pl-13">
           <div
             role="radiogroup"
-            aria-label={`Роль: ${user.firstName}`}
+            aria-label={t.admin.roleOf(user.firstName)}
             className="flex rounded-full bg-secondary/60 p-0.5 ring-1 ring-white/5"
           >
             {ROLES.map((role) => {
@@ -73,7 +74,7 @@ export function UserRow({ user, isSelf }: { user: Me; isSelf: boolean }) {
                   role="radio"
                   aria-checked={active}
                   disabled={pending || locked}
-                  title={locked ? "Спершу розблокуй" : undefined}
+                  title={locked ? t.admin.unblockFirst : undefined}
                   onClick={() => !active && update({ role })}
                   className={cn(
                     "h-8 rounded-full px-3 text-xs font-medium transition-colors outline-none",
@@ -83,7 +84,7 @@ export function UserRow({ user, isSelf }: { user: Me; isSelf: boolean }) {
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {ROLE_LABEL[role]}
+                  {t.roles[role]}
                 </button>
               );
             })}
@@ -94,11 +95,11 @@ export function UserRow({ user, isSelf }: { user: Me; isSelf: boolean }) {
             size="sm"
             className="h-9 rounded-full px-3.5"
             disabled={pending || user.role === "admin"}
-            title={user.role === "admin" ? "Адміна не можна заблокувати — спершу зніми роль" : undefined}
+            title={user.role === "admin" ? t.admin.cantBlockAdmin : undefined}
             onClick={() => update({ isBlocked: !user.isBlocked })}
           >
             <Ban aria-hidden />
-            {user.isBlocked ? "Розблокувати" : "Заблокувати"}
+            {user.isBlocked ? t.admin.unblock : t.admin.block}
           </Button>
         </div>
       )}

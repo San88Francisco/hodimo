@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { CalendarDays, ChevronDown } from "lucide-react";
-import { uk } from "react-day-picker/locale";
+import { enGB, pl, ru, uk } from "react-day-picker/locale";
 
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useT } from "@/lib/i18n/client";
+import { INTL_LOCALE } from "@/lib/i18n/config";
 import { localDayKey } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +19,7 @@ const keyToDate = (key: string) => {
 const dateToKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-const shortDate = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
+const CALENDAR_LOCALE = { uk, ru, pl, en: enGB };
 
 /**
  * Чіп «Інший день», що відкриває календар. Коли день обрано тут,
@@ -33,6 +35,7 @@ export function DatePickerChip({
   onChange: (key: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { locale, t } = useT();
   const selected = active && value ? keyToDate(value) : undefined;
   const today = keyToDate(localDayKey(0));
 
@@ -48,7 +51,9 @@ export function DatePickerChip({
         )}
       >
         <CalendarDays className="size-4" aria-hidden />
-        {selected ? shortDate.format(selected) : "Інший день"}
+        {selected
+          ? selected.toLocaleDateString(INTL_LOCALE[locale], { day: "numeric", month: "short" })
+          : t.form.otherDay}
         <ChevronDown
           className={cn("size-3.5 opacity-70 transition-transform", open && "rotate-180")}
           aria-hidden
@@ -62,7 +67,7 @@ export function DatePickerChip({
       >
         <Calendar
           mode="single"
-          locale={uk}
+          locale={CALENDAR_LOCALE[locale]}
           weekStartsOn={1}
           selected={selected}
           defaultMonth={selected ?? today}

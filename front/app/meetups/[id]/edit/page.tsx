@@ -4,12 +4,16 @@ import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { MeetupForm } from "@/components/meetups/meetup-form";
 import { getMeetup, listCategories } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Редагувати подію — Ходімо" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.form.editTitle} — Ходімо` };
+}
 
 export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id]/edit">) {
   const { id } = await params;
-  const [meetup, categories] = await Promise.all([getMeetup(id), listCategories()]);
+  const [meetup, categories, { t }] = await Promise.all([getMeetup(id), listCategories(), getT()]);
   if (!meetup) notFound();
   // Редагують лише автор і адміни, і лише поки подія не почалася.
   if (!meetup.viewer.canManage || meetup.isPast) redirect(`/meetups/${meetup.id}`);
@@ -17,14 +21,14 @@ export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        title="Редагувати подію"
-        back={{ href: `/meetups/${meetup.id}`, label: "До події" }}
+        title={t.form.editTitle}
+        back={{ href: `/meetups/${meetup.id}`, label: t.common.toMeetup }}
       />
       <MeetupForm
         categories={categories}
         meetup={meetup}
         submitLabel={
-          meetup.status === "rejected" && meetup.viewer.isOrganizer ? "Надіслати на розгляд знову" : undefined
+          meetup.status === "rejected" && meetup.viewer.isOrganizer ? t.form.resubmit : undefined
         }
       />
     </div>

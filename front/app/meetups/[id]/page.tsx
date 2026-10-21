@@ -20,21 +20,17 @@ import { MeetupActions } from "@/components/meetups/meetup-actions";
 import { MeetupCover, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { buttonVariants } from "@/components/ui/button";
 import { getMe, getMeetup } from "@/lib/api";
-import {
-  accessOf,
-  formatFullDate,
-  formatTime,
-  plural,
-  type Meetup,
-  type Person,
-} from "@/lib/meetups";
+import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
+import { getT } from "@/lib/i18n/server";
+import { accessOf, formatFullDate, formatTime, type Meetup, type Person } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/meetups/[id]">): Promise<Metadata> {
-  const meetup = await getMeetup((await params).id);
-  return { title: meetup ? `${meetup.title} — Ходімо` : "Подію не знайдено" };
+  const [meetup, { t }] = await Promise.all([getMeetup((await params).id), getT()]);
+  return { title: meetup ? `${meetup.title} — Ходімо` : t.meetup.notFound };
 }
 
 function InfoRow({
@@ -60,33 +56,33 @@ function InfoRow({
 }
 
 /** Завершену подію не відкриваємо (крім адміна): лише коротко, що вона вже відбулася. */
-function PastScreen({ meetup }: { meetup: Meetup }) {
+function PastScreen({ meetup, t, locale }: { meetup: Meetup; t: Dictionary; locale: Locale }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center">
       <History className="size-10 text-muted-foreground" aria-hidden />
-      <h1 className="text-xl font-bold tracking-tight">Подія вже відбулася</h1>
+      <h1 className="text-xl font-bold tracking-tight">{t.meetup.pastTitle}</h1>
       <p className="text-sm text-muted-foreground">
-        «{meetup.title}» · {formatFullDate(meetup.startsAt)}
+        «{meetup.title}» · {formatFullDate(meetup.startsAt, locale)}
       </p>
       <Link
         href="/"
         className={cn(buttonVariants({ size: "lg" }), "mt-2 h-10 rounded-full px-5 font-semibold")}
       >
-        До всіх подій
+        {t.common.toAllMeetups}
       </Link>
     </div>
   );
 }
 
 /** Статус модерації — бачать лише автор і адміни (іншим непідтверджена подія недоступна). */
-function StatusNotice({ meetup, isAdminView }: { meetup: Meetup; isAdminView: boolean }) {
+function StatusNotice({ meetup, isAdminView, t }: { meetup: Meetup; isAdminView: boolean; t: Dictionary }) {
   if (meetup.isPast) {
     return (
       <div className="flex items-start gap-3 rounded-2xl bg-secondary p-4 text-sm">
         <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
         <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">Подія вже відбулася.</span> Її бачиш лише ти як
-          адмін — змінити її не можна, лише видалити.
+          <span className="font-medium text-foreground">{t.meetup.pastNoticeTitle}</span>{" "}
+          {t.meetup.pastNoticeBody}
         </p>
       </div>
     );
@@ -96,10 +92,8 @@ function StatusNotice({ meetup, isAdminView }: { meetup: Meetup; isAdminView: bo
       <div className="flex items-start gap-3 rounded-2xl bg-amber-400/10 p-4 text-sm">
         <Clock3 className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden />
         <p className="text-muted-foreground">
-          <span className="font-medium text-amber-200">На розгляді.</span>{" "}
-          {isAdminView
-            ? "Перевір подію й схвали або відхили її внизу."
-            : "Адмін перевірить подію — після схвалення її побачать усі."}
+          <span className="font-medium text-amber-200">{t.meetup.pendingTitle}</span>{" "}
+          {isAdminView ? t.meetup.pendingAdmin : t.meetup.pendingAuthor}
         </p>
       </div>
     );
@@ -110,10 +104,11 @@ function StatusNotice({ meetup, isAdminView }: { meetup: Meetup; isAdminView: bo
         <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
         <div className="flex flex-col gap-1 text-muted-foreground">
           <p>
-            <span className="font-medium text-destructive">Відхилено адміном.</span> Подію бачиш лише ти.
+            <span className="font-medium text-destructive">{t.meetup.rejectedTitle}</span>{" "}
+            {t.meetup.rejectedBody}
           </p>
-          {meetup.rejectReason && <p>Причина: {meetup.rejectReason}</p>}
-          {!isAdminView && <p>Можеш виправити її — і вона знову піде на розгляд.</p>}
+          {meetup.rejectReason && <p>{t.common.reason(meetup.rejectReason)}</p>}
+          {!isAdminView && <p>{t.meetup.rejectedFix}</p>}
         </div>
       </div>
     );
@@ -121,13 +116,13 @@ function StatusNotice({ meetup, isAdminView }: { meetup: Meetup; isAdminView: bo
   return null;
 }
 
-function FillBar({ value, full }: { value: number; full: boolean }) {
+function FillBar({ value, full, label }: { value: number; full: boolean; label: string }) {
   const percent = Math.min(100, Math.round(value * 100));
   return (
     <div
       className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary"
       role="progressbar"
-      aria-label="Заповненість"
+      aria-label={label}
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
@@ -162,16 +157,16 @@ function PersonRow({ person, note }: { person: Person; note?: string }) {
 }
 
 export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">) {
-  const [meetup, me] = await Promise.all([getMeetup((await params).id), getMe()]);
+  const [meetup, me, { t, locale }] = await Promise.all([getMeetup((await params).id), getMe(), getT()]);
   if (!meetup) notFound();
   const access = accessOf(me);
-  if (meetup.isPast && access !== "admin") return <PastScreen meetup={meetup} />;
+  if (meetup.isPast && access !== "admin") return <PastScreen meetup={meetup} t={t} locale={locale} />;
 
   const { capacity, attendeesCount } = meetup;
 
   return (
     <div className="mx-auto max-w-3xl pb-32 lg:pb-0">
-      <PageHeader title={meetup.title} back={{ href: "/", label: "Усі події" }} mobile={false} />
+      <PageHeader title={meetup.title} back={{ href: "/", label: t.common.allMeetups }} mobile={false} />
 
       <article className="flex flex-col gap-5 lg:gap-6">
         {/* На мобільному обкладинка на всю ширину, «назад» — поверх неї. */}
@@ -183,7 +178,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
         >
           <Link
             href="/"
-            aria-label="Усі події"
+            aria-label={t.common.allMeetups}
             className="absolute top-[max(env(safe-area-inset-top),0.75rem)] left-3 grid size-10 place-items-center rounded-full bg-black/55 text-white backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
           >
             <ArrowLeft className="size-5" aria-hidden />
@@ -208,27 +203,27 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </h1>
         </header>
 
-        <StatusNotice meetup={meetup} isAdminView={access === "admin" && !meetup.viewer.isOrganizer} />
+        <StatusNotice meetup={meetup} isAdminView={access === "admin" && !meetup.viewer.isOrganizer} t={t} />
 
         <section className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-white/5 sm:p-6">
-          <InfoRow icon={CalendarDays} label="Коли">
-            {formatFullDate(meetup.startsAt)} · {formatTime(meetup.startsAt)}
+          <InfoRow icon={CalendarDays} label={t.meetup.when}>
+            {formatFullDate(meetup.startsAt, locale)} · {formatTime(meetup.startsAt)}
           </InfoRow>
-          <InfoRow icon={MapPin} label="Де">
+          <InfoRow icon={MapPin} label={t.meetup.where}>
             {meetup.city}, {meetup.place}
             {meetup.location && <LocationButton point={meetup.location} label={meetup.place} />}
           </InfoRow>
-          <InfoRow icon={Users} label="Учасники">
+          <InfoRow icon={Users} label={t.meetup.participants}>
             {capacity === null ? (
               <>
                 <span className="tabular-nums">{attendeesCount}</span>{" "}
-                {plural(attendeesCount, ["учасник", "учасники", "учасників"])}{" "}
-                <span className="font-normal text-muted-foreground">· без обмежень</span>
+                {t.meetup.participantsCount(attendeesCount)}{" "}
+                <span className="font-normal text-muted-foreground">· {t.meetup.unlimited}</span>
               </>
             ) : (
               <>
                 <span className="tabular-nums">
-                  {attendeesCount} з {capacity}
+                  {t.meetup.ofCapacity(attendeesCount, capacity)}
                 </span>{" "}
                 <span
                   className={cn(
@@ -236,9 +231,9 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
                     meetup.isFull ? "text-destructive" : "text-muted-foreground",
                   )}
                 >
-                  · {meetup.isFull ? "місць немає" : `вільно ${capacity - attendeesCount}`}
+                  · {meetup.isFull ? t.meetup.noSpots : t.meetup.spotsLeft(capacity - attendeesCount)}
                 </span>
-                <FillBar value={attendeesCount / capacity} full={meetup.isFull} />
+                <FillBar value={attendeesCount / capacity} full={meetup.isFull} label={t.meetup.fill} />
               </>
             )}
           </InfoRow>
@@ -247,7 +242,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
         {meetup.groupUrl && !meetup.isPast && <GroupLink href={meetup.groupUrl} />}
         {meetup.description && (
           <section className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">Про подію</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t.meetup.about}</h2>
             <p className="text-[15px] leading-relaxed whitespace-pre-line text-muted-foreground sm:text-base">
               {meetup.description}
             </p>
@@ -260,7 +255,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
         >
           <PersonAvatar person={meetup.organizer} className="size-10 text-sm" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">Організатор</p>
+            <p className="text-xs text-muted-foreground">{t.meetup.organizer}</p>
             <p className="truncate text-[15px] font-medium text-primary sm:text-sm">
               {meetup.organizer.firstName}
               {meetup.organizer.username && (
@@ -274,14 +269,14 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
         {meetup.participants && (
           <section className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold tracking-tight">
-              Хто йде <span className="text-muted-foreground tabular-nums">{meetup.participants.length}</span>
+              {t.meetup.whoGoes} <span className="text-muted-foreground tabular-nums">{meetup.participants.length}</span>
             </h2>
             <ul className="divide-y divide-border">
               {meetup.participants.map((person) => (
                 <PersonRow
                   key={person.id}
                   person={person}
-                  note={person.id === meetup.organizer.id ? "організатор" : undefined}
+                  note={person.id === meetup.organizer.id ? t.meetup.organizerNote : undefined}
                 />
               ))}
             </ul>

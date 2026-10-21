@@ -1,3 +1,5 @@
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/config";
+
 // ---------- Типи API (`server/`) ----------
 
 export type Person = {
@@ -19,6 +21,10 @@ export type Me = Person & {
   isBlocked: boolean;
   /** Адмін з ADMIN_TELEGRAM_IDS на сервері: в адмінці не змінюється. */
   isRootAdmin: boolean;
+  /** Бот може писати людині (дозволила в Telegram). */
+  botAccess: boolean;
+  /** Анонси нових подій; нагадування про свої події приходять завжди. */
+  notifyNewMeetups: boolean;
   createdAt: string;
 };
 
@@ -115,17 +121,6 @@ export function canCreateMeetups(access: Access) {
   return access === "user" || access === "admin";
 }
 
-export const ROLE_LABEL: Record<Role, string> = {
-  user: "Користувач",
-  admin: "Адмін",
-};
-
-export const STATUS_LABEL: Record<MeetupStatus, string> = {
-  pending: "На розгляді",
-  approved: "Схвалено",
-  rejected: "Відхилено",
-};
-
 // ---------- Кольори ----------
 
 function pickByHash<T>(key: string, list: readonly T[]): T {
@@ -163,25 +158,14 @@ export function avatarAccent(key: string) {
   return pickByHash(key, AVATAR_ACCENTS);
 }
 
-/** 1 учасник, 2 учасники, 5 учасників. */
-export function plural(count: number, [one, few, many]: [string, string, string]) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
-
 export function initials(name: string) {
   return name.trim().charAt(0).toUpperCase() || "?";
 }
 
 // ---------- Фільтри стрічки ----------
 
-export const DATE_FILTERS = [
-  { id: "today", label: "Сьогодні" },
-  { id: "weekend", label: "Цими вихідними" },
-] as const;
+/** Підписи — у словнику (feed.today, feed.weekend). */
+export const DATE_FILTERS = [{ id: "today" }, { id: "weekend" }] as const;
 
 export type FeedFilter =
   | { kind: "all" }
@@ -212,21 +196,32 @@ export function parseFeedFilter(
 export const APP_TIMEZONE = "Europe/Warsaw";
 
 const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIMEZONE });
+/** Лише HH:mm — однаково для всіх мов (і для `<input type="time">`). */
 const timeFormat = new Intl.DateTimeFormat("uk-UA", {
   timeZone: APP_TIMEZONE,
   hour: "2-digit",
   minute: "2-digit",
   hourCycle: "h23",
 });
-const weekdayFormat = new Intl.DateTimeFormat("uk-UA", {
-  timeZone: APP_TIMEZONE,
-  weekday: "long",
-});
-const dayMonthFormat = new Intl.DateTimeFormat("uk-UA", {
-  timeZone: APP_TIMEZONE,
-  day: "numeric",
-  month: "long",
-});
+
+/** Форматери дат під мову інтерфейсу: створюємо один раз на мову. */
+const formatters = new Map<Locale, ReturnType<typeof createFormatters>>();
+
+function createFormatters(locale: Locale) {
+  const tag = INTL_LOCALE[locale];
+  return {
+    weekday: new Intl.DateTimeFormat(tag, { timeZone: APP_TIMEZONE, weekday: "long" }),
+    dayMonth: new Intl.DateTimeFormat(tag, { timeZone: APP_TIMEZONE, day: "numeric", month: "long" }),
+    long: new Intl.DateTimeFormat(tag, { timeZone: APP_TIMEZONE, day: "numeric", month: "long", year: "numeric" }),
+    relative: new Intl.RelativeTimeFormat(tag, { numeric: "auto" }),
+  };
+}
+
+function fmt(locale: Locale) {
+  let value = formatters.get(locale);
+  if (!value) formatters.set(locale, (value = createFormatters(locale)));
+  return value;
+}
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -246,14 +241,23 @@ function daysFromToday(date: Date) {
   return Math.round((toUtcDay(dayKey.format(date)) - toUtcDay(localDayKey())) / 86_400_000);
 }
 
+/** «Сьогодні» / «Завтра» мовою інтерфейсу. */
+export function formatRelativeDay(days: 0 | 1, locale: Locale) {
+  return capitalize(fmt(locale).relative.format(days, "day"));
+}
+
+/** «Субота» для `YYYY-MM-DD`. */
+export function formatWeekday(key: string, locale: Locale) {
+  return capitalize(fmt(locale).weekday.format(new Date(`${key}T12:00:00Z`)));
+}
+
 /** «Сьогодні», «Завтра», «Субота» (цього тижня) або «24 жовтня». */
-export function formatDayLabel(iso: string) {
+export function formatDayLabel(iso: string, locale: Locale) {
   const date = new Date(iso);
   const days = daysFromToday(date);
-  if (days === 0) return "Сьогодні";
-  if (days === 1) return "Завтра";
-  if (days > 1 && days < 7) return capitalize(weekdayFormat.format(date));
-  return dayMonthFormat.format(date);
+  if (days === 0 || days === 1) return formatRelativeDay(days, locale);
+  if (days > 1 && days < 7) return capitalize(fmt(locale).weekday.format(date));
+  return fmt(locale).dayMonth.format(date);
 }
 
 export function formatTime(iso: string) {
@@ -261,21 +265,14 @@ export function formatTime(iso: string) {
 }
 
 /** «Субота, 18 жовтня» */
-export function formatFullDate(iso: string) {
+export function formatFullDate(iso: string, locale: Locale) {
   const date = new Date(iso);
-  return `${capitalize(weekdayFormat.format(date))}, ${dayMonthFormat.format(date)}`;
+  return `${capitalize(fmt(locale).weekday.format(date))}, ${fmt(locale).dayMonth.format(date)}`;
 }
 
-const longDateFormat = new Intl.DateTimeFormat("uk-UA", {
-  timeZone: APP_TIMEZONE,
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-
 /** «17 жовтня 2026 р.» */
-export function formatLongDate(iso: string) {
-  return longDateFormat.format(new Date(iso));
+export function formatLongDate(iso: string, locale: Locale) {
+  return fmt(locale).long.format(new Date(iso));
 }
 
 export function fullName(person: { firstName: string; lastName?: string | null }) {
@@ -283,8 +280,8 @@ export function fullName(person: { firstName: string; lastName?: string | null }
 }
 
 /** «Субота, 18 жовтня» для `YYYY-MM-DD`. */
-export function formatDayKey(key: string) {
-  return formatFullDate(`${key}T12:00:00Z`);
+export function formatDayKey(key: string, locale: Locale) {
+  return formatFullDate(`${key}T12:00:00Z`, locale);
 }
 
 /** ISO → значення для `<input type="date">` і `<input type="time">` у часі Познані. */

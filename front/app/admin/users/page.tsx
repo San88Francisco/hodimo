@@ -9,17 +9,14 @@ import { PageHeader } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMe, getPendingCount, listUsers, USER_FILTERS, type UserFilter } from "@/lib/api";
+import { getT } from "@/lib/i18n/server";
 import { accessOf } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Користувачі — Адмінка" };
-
-const FILTER_LABEL: Record<UserFilter, string> = {
-  all: "Усі",
-  user: "Користувачі",
-  admin: "Адміни",
-  blocked: "Заблоковані",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: `${t.nav.users} — ${t.admin.title}` };
+}
 
 const PAGE = 50;
 
@@ -31,7 +28,10 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
   const q = typeof params.q === "string" ? params.q.trim() : "";
   const filter = USER_FILTERS.find((item) => item === params.filter) ?? "all";
   const limit = Math.min(500, Math.max(PAGE, Number(params.limit) || PAGE));
-  const { items, nextOffset, counts } = await listUsers({ q: q || undefined, filter, limit });
+  const [{ items, nextOffset, counts }, { t }] = await Promise.all([
+    listUsers({ q: q || undefined, filter, limit }),
+    getT(),
+  ]);
 
   /** Посилання зі збереженням пошуку. */
   const href = (next: { filter?: UserFilter; limit?: number }) => {
@@ -46,7 +46,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Адмінка" back={{ href: "/", label: "Усі події" }} />
+      <PageHeader title={t.admin.title} back={{ href: "/", label: t.common.allMeetups }} />
       <AdminTabs active="/admin/users" pendingCount={await getPendingCount()} />
 
       <form className="relative" role="search">
@@ -59,14 +59,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           name="q"
           type="search"
           defaultValue={q}
-          placeholder="Ім'я, @username або Telegram ID"
-          aria-label="Пошук користувачів"
+          placeholder={t.admin.searchPlaceholder}
+          aria-label={t.admin.searchLabel}
           className="h-12 rounded-xl pl-10 text-base"
         />
       </form>
 
       <nav
-        aria-label="Фільтр користувачів"
+        aria-label={t.admin.filterLabel}
         className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:px-0"
       >
         {USER_FILTERS.map((item) => {
@@ -85,7 +85,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                   : "bg-secondary/60 text-muted-foreground ring-1 ring-white/8 hover:bg-secondary hover:text-foreground",
               )}
             >
-              {FILTER_LABEL[item]}
+              {t.admin.userFilters[item]}
               <span className={cn("tabular-nums", active ? "opacity-70" : "opacity-60")}>{counts[item]}</span>
             </Link>
           );
@@ -99,7 +99,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           ))}
         </ul>
       ) : (
-        <p className="py-10 text-center text-sm text-muted-foreground">Нікого не знайдено</p>
+        <p className="py-10 text-center text-sm text-muted-foreground">{t.admin.nobody}</p>
       )}
 
       {nextOffset !== null && limit < 500 && (
@@ -108,7 +108,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
           scroll={false}
           className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "mt-4 h-11 w-full rounded-full")}
         >
-          Показати ще
+          {t.admin.showMore}
         </Link>
       )}
     </div>

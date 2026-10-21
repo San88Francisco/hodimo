@@ -7,28 +7,28 @@ import { Plus } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { NAV_ITEMS } from "@/components/layout/nav-items";
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { buttonVariants } from "@/components/ui/button";
-import { accessOf, canCreateMeetups, type Me } from "@/lib/meetups";
+import { useT } from "@/lib/i18n/client";
+import { accessOf, canCreateMeetups, type Access, type Me } from "@/lib/meetups";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
-const ACCESS_LABEL = {
-  guest: "Гість",
-  blocked: "Заблоковано",
-  user: "Користувач",
-  admin: "Адмін",
-} as const;
+const accessLabel = (t: Dictionary, access: Access) =>
+  access === "guest" ? t.common.guest : access === "blocked" ? t.common.blocked : t.roles[access];
 
 export function Sidebar({ me }: { me: Me | null }) {
   const pathname = usePathname();
   const access = accessOf(me);
+  const { t } = useT();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col gap-8 border-r border-border bg-sidebar px-4 py-6 lg:flex">
-      <Link href="/" aria-label="Ходімо — на головну" className="px-1 outline-none">
-        <Logo className="text-xl" markClassName="size-10" />
+      <Link href="/" aria-label={t.nav.home} className="px-1 outline-none">
+        <Logo className="text-xl" markClassName="h-10" />
       </Link>
 
-      <nav aria-label="Головна навігація" className="flex-1">
+      <nav aria-label={t.nav.main} className="flex-1">
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.filter((item) => !item.adminOnly || access === "admin").map(
             ({ href, label, icon: Icon, match }) => {
@@ -47,7 +47,7 @@ export function Sidebar({ me }: { me: Me | null }) {
                     )}
                   >
                     <Icon className="size-5" aria-hidden />
-                    {label}
+                    {label(t)}
                   </Link>
                 </li>
               );
@@ -66,7 +66,7 @@ export function Sidebar({ me }: { me: Me | null }) {
             )}
           >
             <Plus className="size-4" aria-hidden />
-            Створити подію
+            {t.common.createMeetup}
           </Link>
         )}
 
@@ -79,15 +79,15 @@ export function Sidebar({ me }: { me: Me | null }) {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{me.firstName}</p>
               <p className={cn("text-xs", access === "blocked" ? "text-destructive" : "text-muted-foreground")}>
-                {ACCESS_LABEL[access]}
+                {accessLabel(t, access)}
               </p>
             </div>
           </Link>
         ) : (
-          <p className="px-2 text-xs leading-relaxed text-muted-foreground">
-            Ти переглядаєш як гість. Відкрий застосунок у Telegram, щоб записуватись на події.
-          </p>
+          <p className="px-2 text-xs leading-relaxed text-muted-foreground">{t.access.guestShort}</p>
         )}
+
+        <LanguageSwitcher />
       </div>
     </aside>
   );

@@ -5,9 +5,16 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import * as api from "@/lib/api";
+import { isLocale, LOCALE_COOKIE, matchLocale, type Locale } from "@/lib/i18n/config";
+import { getT } from "@/lib/i18n/server";
 import { googleImageTarget, isGoogleShareLink, isGoogleUrl } from "@/lib/image-url";
 import type { Category, Me, Meetup, MeetupPayload } from "@/lib/meetups";
-import { encodeSession, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
+import {
+  encodeSession,
+  localeCookieOptions,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+} from "@/lib/session";
 
 export type ActionError = {
   message: string;
@@ -15,7 +22,7 @@ export type ActionError = {
   fieldErrors: Record<string, string>;
 };
 
-function toActionError(error: unknown): ActionError {
+async function toActionError(error: unknown): Promise<ActionError> {
   if (error instanceof api.ApiError) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of error.details ?? []) {
@@ -24,7 +31,8 @@ function toActionError(error: unknown): ActionError {
     return { message: error.message, fieldErrors };
   }
   console.error(error);
-  return { message: "Сервер недоступний. Спробуй ще раз.", fieldErrors: {} };
+  const { t } = await getT();
+  return { message: t.common.serverUnavailable, fieldErrors: {} };
 }
 
 /** Виконує дію з API; повертає помилку або null. */
@@ -33,30 +41,61 @@ async function attempt(fn: () => Promise<unknown>): Promise<ActionError | null> 
     await fn();
     return null;
   } catch (error) {
-    return toActionError(error);
+    return await toActionError(error);
   }
 }
 
 // ---------- Сесія ----------
 
+const isHttps = async () => (await headers()).get("x-forwarded-proto") === "https";
+
 async function setSession(initData: string) {
-  const forwardedProto = (await headers()).get("x-forwarded-proto");
-  (await cookies()).set(
-    SESSION_COOKIE,
-    encodeSession(initData),
-    sessionCookieOptions(forwardedProto === "https"),
-  );
+  (await cookies()).set(SESSION_COOKIE, encodeSession(initData), sessionCookieOptions(await isHttps()));
 }
 
-/** Вхід через Telegram: initData перевіряє API, і лише тоді вони стають сесією. */
-export async function signIn(initData: string): Promise<boolean> {
+/** Мова з Telegram (user.language_code в initData), якщо ми її підтримуємо. */
+function telegramLocale(initData: string): Locale | null {
+  try {
+    const user = JSON.parse(new URLSearchParams(initData).get("user") ?? "{}") as { language_code?: string };
+    return matchLocale(user.language_code);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Вхід через Telegram: initData перевіряє API, і лише тоді вони стають сесією.
+ * Мову ще не обирали — беремо мову Telegram; true, якщо вона змінилась і сторінку треба перемалювати.
+ */
+export async function signIn(initData: string): Promise<{ ok: boolean; localeChanged: boolean }> {
   try {
     await api.verifyInitData(initData);
   } catch {
-    return false;
+    return { ok: false, localeChanged: false };
   }
   await setSession(initData);
-  return true;
+
+  const store = await cookies();
+  if (store.has(LOCALE_COOKIE)) return { ok: true, localeChanged: false };
+  const detected = telegramLocale(initData);
+  if (!detected) return { ok: true, localeChanged: false };
+  const { locale: current } = await getT();
+  store.set(LOCALE_COOKIE, detected, localeCookieOptions(await isHttps()));
+  return { ok: true, localeChanged: detected !== current };
+}
+
+/** Перемикач мови. */
+export async function setLocale(locale: Locale) {
+  if (!isLocale(locale)) return;
+  (await cookies()).set(LOCALE_COOKIE, locale, localeCookieOptions(await isHttps()));
+  revalidatePath("/", "layout");
+}
+
+/** Дозвіл боту писати й анонси нових подій. */
+export async function updateNotifications(patch: api.NotificationSettings) {
+  const error = await attempt(() => api.updateMe(patch));
+  revalidatePath("/", "layout");
+  return error;
 }
 
 function assertDev() {
@@ -133,7 +172,7 @@ export async function saveMeetup(id: string | null, payload: MeetupPayload): Pro
   try {
     meetup = id ? await api.updateMeetup(id, payload) : await api.createMeetup(payload);
   } catch (error) {
-    return toActionError(error);
+    return await toActionError(error);
   }
   revalidatePath("/");
   revalidatePath(`/meetups/${meetup.id}`);
@@ -144,7 +183,7 @@ export async function removeMeetup(id: string): Promise<ActionError> {
   try {
     await api.deleteMeetup(id);
   } catch (error) {
-    if (!(error instanceof api.ApiError && error.status === 404)) return toActionError(error);
+    if (!(error instanceof api.ApiError && error.status === 404)) return await toActionError(error);
   }
   revalidatePath("/");
   redirect("/");

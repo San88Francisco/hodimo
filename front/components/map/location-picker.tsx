@@ -14,6 +14,7 @@ import {
   searchPlaces,
   type Place,
 } from "@/lib/geocode";
+import { useT } from "@/lib/i18n/client";
 import type { GeoPoint } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,7 @@ export function LocationPicker({
 }
 
 function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: PickerProps & { onClose: () => void }) {
+  const { t } = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const [center, setCenter] = useState<GeoPoint>(initial ?? DEFAULT_CENTER);
@@ -213,12 +215,12 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
     <>
       <div className="relative z-20 flex items-center gap-2 border-b border-border bg-background px-3 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
         <Dialog.Close
-          aria-label="Закрити"
+          aria-label={t.common.close}
           className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-5" aria-hidden />
         </Dialog.Close>
-        <Dialog.Title className="sr-only">Точка на карті</Dialog.Title>
+        <Dialog.Title className="sr-only">{t.picker.title}</Dialog.Title>
         <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-secondary px-4 focus-within:ring-2 focus-within:ring-ring">
           <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <input
@@ -235,8 +237,8 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
                 setSearchFailed(false);
               }
             }}
-            placeholder="Вулиця, номер, місце"
-            aria-label="Пошук адреси"
+            placeholder={t.picker.searchPlaceholder}
+            aria-label={t.picker.searchLabel}
             className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
           />
         </label>
@@ -244,17 +246,13 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
         {(results.length > 0 || searching || nothingFound || searchFailed) && (
           <div className="absolute inset-x-3 top-full mt-2 overflow-hidden rounded-2xl bg-popover shadow-xl ring-1 ring-white/10">
             {searching && results.length === 0 && (
-              <p className="px-4 py-3 text-sm text-muted-foreground">Шукаю…</p>
+              <p className="px-4 py-3 text-sm text-muted-foreground">{t.picker.searching}</p>
             )}
             {searchFailed && !searching && (
-              <p className="px-4 py-3 text-sm text-muted-foreground">
-                Пошук адрес зараз не відповідає. Пересунь карту до місця вручну — пін стоїть по центру.
-              </p>
+              <p className="px-4 py-3 text-sm text-muted-foreground">{t.picker.searchFailed}</p>
             )}
             {nothingFound && !searching && (
-              <p className="px-4 py-3 text-sm text-muted-foreground">
-                Нічого не знайшли. Спробуй польською (напр. «Święty Marcin 80») або пересунь карту до місця.
-              </p>
+              <p className="px-4 py-3 text-sm text-muted-foreground">{t.picker.nothingFound}</p>
             )}
             <ul className="max-h-[50dvh] divide-y divide-border overflow-y-auto">
               {results.map((place) => (
@@ -296,7 +294,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
           type="button"
           onClick={locate}
           disabled={locating}
-          aria-label="Де я зараз"
+          aria-label={t.picker.locate}
           className="absolute right-3 bottom-12 z-10 grid size-12 place-items-center rounded-full bg-popover text-foreground shadow-lg ring-1 ring-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
         >
           <LocateFixed className={cn("size-5", locating && "animate-pulse")} aria-hidden />
@@ -308,7 +306,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
           <MapPin className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0">
             {resolving ? (
-              <p className="text-[15px] text-muted-foreground">Шукаю адресу…</p>
+              <p className="text-[15px] text-muted-foreground">{t.picker.resolving}</p>
             ) : address ? (
               <>
                 <p className="truncate text-[15px] font-medium">{address.title}</p>
@@ -318,17 +316,15 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
               </>
             ) : (
               <p className="text-[15px] text-muted-foreground">
-                {addressFailed
-                  ? "Не вдалося визначити адресу — точку все одно збережемо"
-                  : "Адреси тут немає — але точку збережемо"}
+                {addressFailed ? t.picker.addressFailed : t.picker.noAddress}
               </p>
             )}
             {geoError && (
-              <p className="mt-1 text-xs text-destructive">Не вдалося визначити, де ти. Дозволь доступ до геолокації.</p>
+              <p className="mt-1 text-xs text-destructive">{t.picker.geoError}</p>
             )}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">Пересунь карту, щоб пін став точно на місце зустрічі.</p>
+        <p className="text-xs text-muted-foreground">{t.picker.hint}</p>
         <Button
           size="lg"
           className="h-12 w-full rounded-full text-base font-semibold"
@@ -337,7 +333,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
             onClose();
           }}
         >
-          Готово
+          {t.picker.done}
         </Button>
       </div>
     </>

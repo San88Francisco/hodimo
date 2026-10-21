@@ -6,6 +6,7 @@ import { Archive, ArchiveRestore, GripVertical, Plus, Trash2 } from "lucide-reac
 import { addCategory, editCategory, removeCategory, reorderCategories } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/lib/i18n/client";
 import type { Category } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ function NewCategory() {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("");
   const { error, pending, run } = useAction();
+  const { t } = useT();
 
   return (
     <form
@@ -44,18 +46,18 @@ function NewCategory() {
         );
       }}
     >
-      <p className="text-sm font-medium">Нова категорія</p>
+      <p className="text-sm font-medium">{t.admin.newCategory}</p>
       <div className="flex gap-2">
         <Input
-          aria-label="Емодзі"
+          aria-label={t.admin.emoji}
           placeholder="🙂"
           className="h-11 w-14 shrink-0 rounded-xl text-center text-lg"
           value={emoji}
           onChange={(event) => setEmoji(event.target.value)}
         />
         <Input
-          aria-label="Назва"
-          placeholder="Назва"
+          aria-label={t.admin.name}
+          placeholder={t.admin.name}
           className="h-11 min-w-0 flex-1 rounded-xl text-base"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -63,7 +65,7 @@ function NewCategory() {
         <Button
           type="submit"
           size="lg"
-          aria-label="Додати"
+          aria-label={t.admin.add}
           className="size-11 shrink-0 rounded-full"
           disabled={pending || !name.trim() || !emoji.trim()}
         >
@@ -97,6 +99,7 @@ function CategoryRow({
   const [emoji, setEmoji] = useState(category.emoji);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { error, pending, run } = useAction();
+  const { t } = useT();
   const dirty = name.trim() !== category.name || emoji.trim() !== category.emoji;
 
   return (
@@ -111,8 +114,8 @@ function CategoryRow({
         {/* touch-none — щоб у Telegram палець тягнув рядок, а не прокручував сторінку. */}
         <button
           type="button"
-          aria-label={`Перетягнути «${category.name}»`}
-          title="Перетягни, щоб змінити порядок"
+          aria-label={t.admin.drag(category.name)}
+          title={t.admin.dragHint}
           className={cn(
             "-ml-1 grid h-11 w-7 shrink-0 touch-none place-items-center rounded-lg text-muted-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
             dragging ? "cursor-grabbing text-foreground" : "cursor-grab hover:text-foreground",
@@ -122,13 +125,13 @@ function CategoryRow({
           <GripVertical className="size-5" aria-hidden />
         </button>
         <Input
-          aria-label="Емодзі"
+          aria-label={t.admin.emoji}
           className="h-11 w-14 shrink-0 rounded-xl text-center text-lg"
           value={emoji}
           onChange={(event) => setEmoji(event.target.value)}
         />
         <Input
-          aria-label="Назва"
+          aria-label={t.admin.name}
           className="h-11 min-w-0 flex-1 rounded-xl text-base"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -140,15 +143,15 @@ function CategoryRow({
             disabled={pending}
             onClick={() => run(() => editCategory(category.id, { name, emoji }))}
           >
-            Зберегти
+            {t.common.save}
           </Button>
         ) : (
           <>
             <Button
               variant="secondary"
               size="lg"
-              aria-label={category.isArchived ? "Повернути з архіву" : "В архів"}
-              title={category.isArchived ? "Повернути з архіву" : "В архів"}
+              aria-label={category.isArchived ? t.admin.unarchive : t.admin.archive}
+              title={category.isArchived ? t.admin.unarchive : t.admin.archive}
               className="size-11 shrink-0 rounded-full"
               disabled={pending}
               onClick={() => run(() => editCategory(category.id, { isArchived: !category.isArchived }))}
@@ -162,7 +165,7 @@ function CategoryRow({
             <Button
               variant="destructive"
               size="lg"
-              aria-label="Видалити"
+              aria-label={t.common.delete}
               className="size-11 shrink-0 rounded-full"
               disabled={pending}
               onClick={() => setConfirmDelete(true)}
@@ -174,13 +177,13 @@ function CategoryRow({
       </div>
 
       {category.isArchived && (
-        <p className="text-xs text-muted-foreground">В архіві: не показується у формі й фільтрах</p>
+        <p className="text-xs text-muted-foreground">{t.admin.archived}</p>
       )}
       {confirmDelete && (
         <div className="flex items-center gap-2 text-sm">
-          <span className="flex-1">Видалити «{category.name}»?</span>
+          <span className="flex-1">{t.admin.deleteCategory(category.name)}</span>
           <Button variant="ghost" size="sm" className="h-9 rounded-full" onClick={() => setConfirmDelete(false)}>
-            Ні
+            {t.common.no}
           </Button>
           <Button
             variant="destructive"
@@ -189,7 +192,7 @@ function CategoryRow({
             disabled={pending}
             onClick={() => run(() => removeCategory(category.id), () => setConfirmDelete(false))}
           >
-            Так
+            {t.common.yes}
           </Button>
         </div>
       )}
@@ -220,6 +223,7 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const { error, pending, run } = useAction();
+  const { t } = useT();
 
   function save(next: Category[]) {
     if (sameOrder(next, categories)) return;
@@ -280,7 +284,7 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
       <NewCategory />
       <div className="flex flex-col gap-1">
         <p className="text-xs text-muted-foreground">
-          {pending ? "Зберігаю порядок…" : "Тягни за ⋮⋮, щоб змінити порядок у фільтрах і формі."}
+          {pending ? t.admin.savingOrder : t.admin.orderHint}
         </p>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <ul ref={listRef} className={cn("divide-y divide-border", draggingId && "select-none")}>

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 
+import { getLocale } from "@/lib/i18n/server";
 import type { Category, Me, Meetup, MeetupPayload, Profile, Role } from "@/lib/meetups";
 import { decodeSession, SESSION_COOKIE } from "@/lib/session";
 
@@ -30,6 +31,8 @@ async function request<T>(
     ...rest,
     headers: {
       "content-type": "application/json",
+      // Помилки API приходять мовою інтерфейсу.
+      "accept-language": await getLocale(),
       ...(initData && { authorization: `tma ${initData}` }),
       ...rest.headers,
     },
@@ -72,9 +75,15 @@ export const getMe = cache(async (): Promise<Me | null> => {
   }
 });
 
-/** Перевіряє initData на API, не чіпаючи cookie. */
+export type NotificationSettings = Partial<{ botAccess: true; notifyNewMeetups: boolean }>;
+
+export function updateMe(patch: NotificationSettings) {
+  return request<Me>("/me", json("PATCH", patch));
+}
+
+/** Перевіряє initData на API (не чіпаючи cookie) і рахує відкриття застосунку. */
 export function verifyInitData(initData: string) {
-  return request<Me>("/me", { initData });
+  return request<Me>("/me/visit", { method: "POST", initData });
 }
 
 export type DevPerson = {
@@ -201,4 +210,17 @@ export function listUsers({
 
 export function updateUser(id: string, patch: Partial<Pick<Me, "role" | "isBlocked">>) {
   return request<Me>(`/admin/users/${encodeURIComponent(id)}`, json("PATCH", patch));
+}
+
+export type AnalyticsPeriod = "today" | "week" | "month" | "halfYear" | "all";
+
+export type Analytics = {
+  totalUsers: number;
+  /** Перше записане відкриття (ISO); null — ще жодного. */
+  trackedSince: string | null;
+  periods: { period: AnalyticsPeriod; visits: number; visitors: number; newUsers: number }[];
+};
+
+export function getAnalytics() {
+  return request<Analytics>("/admin/analytics");
 }

@@ -24,12 +24,18 @@ function readInitData(request: Request): string | null {
   return rest.join(" ");
 }
 
-async function authenticate(initData: string): Promise<User> {
+type Session = {
+  user: User;
+  /** Коли відкрили Mini App (auth_date з initData). */
+  openedAt: Date;
+};
+
+async function authenticate(initData: string): Promise<Session> {
   const config = env();
   const result = validateInitData(initData, config.TELEGRAM_BOT_TOKEN, config.INITDATA_MAX_AGE_SECONDS);
   if (!result.ok) throw unauthorized(result.reason);
 
-  const { user } = result;
+  const { user, authDate } = result;
   const profile = {
     firstName: user.first_name,
     lastName: user.last_name ?? null,
@@ -37,20 +43,27 @@ async function authenticate(initData: string): Promise<User> {
     photoUrl: user.photo_url ?? null,
   };
   const isAdmin = config.ADMIN_TELEGRAM_IDS.includes(user.id);
+  // Лише вмикаємо: відсутнє поле не означає заборону (людина могла натиснути Start у боті).
+  const access = user.allows_write_to_pm ? { botAccess: true } : {};
 
   const [row] = await db()
     .insert(schema.users)
-    .values({ telegramId: user.id, ...profile, role: isAdmin ? "admin" : "user" })
+    .values({ telegramId: user.id, ...profile, ...access, role: isAdmin ? "admin" : "user" })
     .onConflictDoUpdate({
       target: schema.users.telegramId,
-      set: { ...profile, ...(isAdmin && { role: "admin" as const }) },
+      set: { ...profile, ...access, ...(isAdmin && { role: "admin" as const }) },
     })
     .returning();
-  return row!;
+  return { user: row!, openedAt: new Date(authDate * 1000) };
 }
 
 /** Користувач або 401. */
 export async function requireUser(request: Request): Promise<User> {
+  return (await requireSession(request)).user;
+}
+
+/** Користувач разом із моментом запуску Mini App, або 401. */
+export async function requireSession(request: Request): Promise<Session> {
   const initData = readInitData(request);
   if (!initData) throw unauthorized();
   return authenticate(initData);
@@ -80,7 +93,7 @@ export async function viewer(request: Request): Promise<User | null> {
 export async function optionalUser(request: Request): Promise<User | null> {
   try {
     const initData = readInitData(request);
-    return initData ? await authenticate(initData) : null;
+    return initData ? (await authenticate(initData)).user : null;
   } catch (error) {
     if (error instanceof HttpError && error.status === 401) return null;
     throw error;
@@ -107,6 +120,8 @@ export function toUserDto(user: User) {
     role: user.role,
     isBlocked: user.isBlocked,
     isRootAdmin: isRootAdmin(user),
+    botAccess: user.botAccess,
+    notifyNewMeetups: user.notifyNewMeetups,
     createdAt: user.createdAt.toISOString(),
   };
 }

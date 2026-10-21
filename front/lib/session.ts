@@ -32,3 +32,8 @@ export function sessionCookieOptions(isHttps: boolean) {
     maxAge: 60 * 60 * 24,
   };
 }
+
+/** Обрана мова: не секрет (httpOnly не треба), живе рік; та сама історія з iframe Telegram Web. */
+export function localeCookieOptions(isHttps: boolean) {
+  return { ...sessionCookieOptions(isHttps), httpOnly: false, maxAge: 60 * 60 * 24 * 365 };
+}

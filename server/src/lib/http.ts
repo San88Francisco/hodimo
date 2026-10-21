@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { requestLocale, translate } from "@/lib/i18n";
+
 export class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -23,7 +25,7 @@ function errorResponse(status: number, code: string, message: string, details?: 
 
 /**
  * Обгортка для Route Handler: перетворює HttpError і ZodError на JSON-відповіді,
- * а все інше — на 500 без витоку деталей.
+ * а все інше — на 500 без витоку деталей. Повідомлення — мовою з Accept-Language.
  */
 export function handler<Args extends unknown[]>(
   fn: (...args: Args) => Promise<Response>,
@@ -32,19 +34,20 @@ export function handler<Args extends unknown[]>(
     try {
       return await fn(...args);
     } catch (error) {
+      const t = (message: string) => translate(message, requestLocale(args[0]));
       if (error instanceof HttpError) {
-        return errorResponse(error.status, error.code, error.message);
+        return errorResponse(error.status, error.code, t(error.message));
       }
       if (error instanceof z.ZodError) {
         return errorResponse(
           400,
           "validation_error",
-          "Некоректні дані",
-          error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+          t("Некоректні дані"),
+          error.issues.map((issue) => ({ path: issue.path.join("."), message: t(issue.message) })),
         );
       }
       console.error(error);
-      return errorResponse(500, "internal_error", "Щось пішло не так");
+      return errorResponse(500, "internal_error", t("Щось пішло не так"));
     }
   };
 }

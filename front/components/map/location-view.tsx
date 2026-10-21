@@ -6,6 +6,7 @@ import { Map as MapIcon, Navigation, X } from "lucide-react";
 
 import { addPin, createMap, type MapInstance } from "@/components/map/maplibre";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 import { mapsUrl, type GeoPoint } from "@/lib/meetups";
 import { openExternal } from "@/lib/telegram";
 
@@ -15,12 +16,13 @@ import { openExternal } from "@/lib/telegram";
  */
 export function LocationButton({ point, label }: { point: GeoPoint; label: string }) {
   const [open, setOpen] = useState(false);
+  const { t } = useT();
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger className="mt-2 flex h-9 w-fit items-center gap-1.5 rounded-full bg-secondary px-3.5 text-sm font-semibold text-primary outline-none transition-colors hover:bg-secondary/70 focus-visible:ring-2 focus-visible:ring-ring">
         <MapIcon className="size-4" aria-hidden />
-        На карті
+        {t.meetup.onMap}
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Popup className="fixed inset-0 z-50 flex flex-col bg-background outline-none transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0">
@@ -33,6 +35,7 @@ export function LocationButton({ point, label }: { point: GeoPoint; label: strin
 
 function LocationMap({ point, label }: { point: GeoPoint; label: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { t } = useT();
 
   // Поки карта відкрита, свайп униз у Telegram не згортає застосунок.
   useEffect(() => {
@@ -65,7 +68,7 @@ function LocationMap({ point, label }: { point: GeoPoint; label: string }) {
     <>
       <div className="z-20 flex items-center gap-2 border-b border-border bg-background px-3 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3">
         <Dialog.Close
-          aria-label="Закрити"
+          aria-label={t.common.close}
           className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-5" aria-hidden />
@@ -88,7 +91,7 @@ function LocationMap({ point, label }: { point: GeoPoint; label: string }) {
           onClick={() => openExternal(mapsUrl(point))}
         >
           <Navigation aria-hidden />
-          Маршрут
+          {t.meetup.route}
         </Button>
       </div>
     </>

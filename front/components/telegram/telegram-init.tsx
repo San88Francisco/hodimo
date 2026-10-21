@@ -18,6 +18,9 @@ type TelegramWebApp = {
   /** Bot API 7.7+: свайп униз не згортає застосунок (потрібно, коли тягнемо карту). */
   disableVerticalSwipes?: () => void;
   enableVerticalSwipes?: () => void;
+  /** Bot API 6.9+: системний діалог «дозволити боту писати вам». */
+  requestWriteAccess?: (callback?: (granted: boolean) => void) => void;
+  isVersionAtLeast?: (version: string) => boolean;
 };
 
 declare global {
@@ -62,12 +65,12 @@ export function TelegramInit({ signedInTelegramId }: { signedInTelegramId: numbe
       } catch {}
       if (alreadySent && signedInTelegramId === telegramId) return;
 
-      void signIn(webApp.initData).then((ok) => {
+      void signIn(webApp.initData).then(({ ok, localeChanged }) => {
         if (!ok || cancelled) return;
         try {
           sessionStorage.setItem(SENT_KEY, webApp.initData);
         } catch {}
-        if (signedInTelegramId !== telegramId) router.refresh();
+        if (signedInTelegramId !== telegramId || localeChanged) router.refresh();
       });
     });
 

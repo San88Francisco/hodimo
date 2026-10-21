@@ -2,19 +2,21 @@ import Link from "next/link";
 import { UserX } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { getT } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 
-export default function UserNotFound() {
+export default async function UserNotFound() {
+  const { t } = await getT();
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center">
       <UserX className="size-10 text-muted-foreground" aria-hidden />
-      <h1 className="text-xl font-bold tracking-tight">Такого користувача немає</h1>
-      <p className="text-sm text-muted-foreground">Можливо, посилання неправильне.</p>
+      <h1 className="text-xl font-bold tracking-tight">{t.profile.notFoundTitle}</h1>
+      <p className="text-sm text-muted-foreground">{t.profile.notFoundBody}</p>
       <Link
         href="/"
         className={cn(buttonVariants({ size: "lg" }), "mt-2 h-10 rounded-full px-5 font-semibold")}
       >
-        До всіх подій
+        {t.common.toAllMeetups}
       </Link>
     </div>
   );

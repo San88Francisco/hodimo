@@ -18,6 +18,18 @@ const EnvSchema = z.object({
   INITDATA_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(86_400),
   /** Telegram ID, які завжди отримують роль admin. */
   ADMIN_TELEGRAM_IDS: commaList.pipe(z.array(z.string().regex(/^\d+$/).transform(Number))),
+  /**
+   * Адреса фронту (Mini App): кнопки в повідомленнях бота відкривають її.
+   * Не задано — бот нічого не надсилає (локально токен несправжній).
+   */
+  MINI_APP_URL: z.url({ protocol: /^https$/ }).optional(),
+  /** Telegram надсилає його в `X-Telegram-Bot-Api-Secret-Token` на вебхук бота. */
+  TELEGRAM_WEBHOOK_SECRET: z
+    .string()
+    .regex(/^[\w-]{16,256}$/, "16–256 символів: латиниця, цифри, _ або -")
+    .optional(),
+  /** Vercel Cron надсилає його як `Authorization: Bearer …`. */
+  CRON_SECRET: z.string().min(16).optional(),
   /** Лише для локальної розробки: POST /api/dev/init-data видає підписані initData. */
   DEV_LOGIN: z
     .enum(["true", "false"])

@@ -41,6 +41,23 @@ npm run dev                                      # http://localhost:5000
 - **Завершена** — час старту минув: зникає зі стрічки, з нею нічого не можна зробити,
   але вона назавжди лишається в історії профілю.
 
+## Сповіщення від бота
+
+- **Анонс** — коли подія вперше стає видимою всім (адмін схвалив або сам створив), бот одразу
+  після відповіді (`after()`) пише всім, хто дозволив і не вимкнув анонси, крім автора. Один раз на подію (`announced_at`).
+- **Нагадування** — Vercel Cron щодня о 16:00 UTC смикає `/api/cron/reminders`: учасникам подій,
+  що починаються завтра (за `APP_TIMEZONE`), приходить «Завтра: …». Один раз на подію (`reminded_at`).
+- Формат: назва, коли, де, картинка події (не прийняв Telegram — без неї) і кнопка, що відкриває подію в Mini App.
+- **Привітання** — на `/start` бот коротко розповідає про Ходімо мовою Telegram людини (uk/ru/pl/en)
+  і дає кнопку відкрити Mini App; заодно вмикає `bot_access`. Працює через вебхук
+  `/api/telegram/webhook` (секрет `TELEGRAM_WEBHOOK_SECRET`), підключається один раз:
+  `npm run -s tg:webhook -- --server https://<сервер>.vercel.app`.
+
+Бот не може писати першим тому, хто йому не дозволяв. Дозвіл (`users.bot_access`) береться з
+`allows_write_to_pm` в initData або з `requestWriteAccess()` (плашка на головній, блок у профілі →
+`PATCH /api/me`). Якщо Telegram відповів 403 (людина заблокувала бота), доступ скидається.
+Без `MINI_APP_URL` бот мовчить.
+
 Авторизація: `Authorization: tma <initData>` (сирий `Telegram.WebApp.initData`).
 Сервер перевіряє підпис токеном бота й свіжість, потім створює/оновлює користувача.
 
@@ -53,6 +70,10 @@ npm run dev                                      # http://localhost:5000
 | -------- | -------------------------- | ------------------- | ----------------------------------------------------------- |
 | `GET`    | `/api/health`              | усі                 | пінг бази                                                   |
 | `GET`    | `/api/me`                  | користувач          | профіль із роллю                                            |
+| `PATCH`  | `/api/me`                  | користувач          | `{ botAccess?: true, notifyNewMeetups?: boolean }` — сповіщення |
+| `POST`   | `/api/me/visit`            | користувач          | вхід у Mini App: як `GET /api/me` + рахує відкриття (раз на `auth_date`) |
+| `GET`    | `/api/cron/reminders`      | Vercel Cron         | нагадування «завтра»; `Authorization: Bearer <CRON_SECRET>` |
+| `POST`   | `/api/telegram/webhook`    | Telegram            | оновлення бота (привітання на `/start`); заголовок `X-Telegram-Bot-Api-Secret-Token` |
 | `GET`    | `/api/categories`          | усі                 | активні категорії; адмін із `?all=1` — і архівні            |
 | `POST`   | `/api/categories`          | адмін               | `{ name, emoji }`                                           |
 | `PATCH`  | `/api/categories/:id`      | адмін               | `{ name?, emoji?, isArchived? }`                            |
@@ -68,6 +89,7 @@ npm run dev                                      # http://localhost:5000
 | `POST`   | `/api/meetups/:id/approve` | адмін               | схвалити                                                    |
 | `POST`   | `/api/meetups/:id/reject`  | адмін               | `{ reason? }` — відхилити                                   |
 | `GET`    | `/api/admin/summary`       | адмін               | `{ pendingMeetups }` — лічильник черги                      |
+| `GET`    | `/api/admin/analytics`     | адмін               | `{ totalUsers, trackedSince, periods }` — відкриття, різні люди й нові за сьогодні / 7 / 30 днів / пів року / весь час |
 | `GET`    | `/api/admin/users`         | адмін               | `?q=` ім'я, @username або Telegram ID                       |
 | `PATCH`  | `/api/admin/users/:id`     | адмін               | `{ role?: "user"\|"admin", isBlocked? }`; себе — не можна   |
 
@@ -95,4 +117,4 @@ npm run dev                                      # http://localhost:5000
 ## Прод (Vercel + Supabase)
 
 `DATABASE_URL` (Transaction pooler, порт 6543), `TELEGRAM_BOT_TOKEN` (справжній),
-`ADMIN_TELEGRAM_IDS`, `DEV_LOGIN=false`, `DB_POOL_MAX=1`. Міграції: `npm run db:migrate && npm run db:categories`.
+`ADMIN_TELEGRAM_IDS`, `DEV_LOGIN=false`, `DB_POOL_MAX=1`, `MINI_APP_URL` (адреса фронту), `CRON_SECRET`, `TELEGRAM_WEBHOOK_SECRET`. Міграції: `npm run db:migrate && npm run db:categories`.

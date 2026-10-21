@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarDays, Check, Clock3, History, MapPin, Users, XCircle } from "lucide-react";
 
@@ -5,16 +7,18 @@ import { CardDeleteButton } from "@/components/meetups/card-delete-button";
 import { CardDescription } from "@/components/meetups/card-description";
 import { MeetupCover, OverlayBadge, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { CopyLinkButton } from "@/components/meetups/copy-link-button";
-import { formatDayLabel, formatTime, STATUS_LABEL, type Meetup } from "@/lib/meetups";
+import { useT } from "@/lib/i18n/client";
+import { formatDayLabel, formatTime, type Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 /** Стан у нижньому куті обкладинки: завершена → статус модерації → «ти йдеш». */
 function StateBadge({ meetup }: { meetup: Meetup }) {
+  const { t } = useT();
   if (meetup.isPast) {
     return (
       <OverlayBadge className="absolute bottom-3 left-3">
         <History aria-hidden />
-        Завершилась
+        {t.card.finished}
       </OverlayBadge>
     );
   }
@@ -22,7 +26,7 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
     return (
       <OverlayBadge className="absolute bottom-3 left-3 bg-amber-400 text-black">
         <Clock3 aria-hidden />
-        {STATUS_LABEL.pending}
+        {t.status.pending}
       </OverlayBadge>
     );
   }
@@ -30,7 +34,7 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
     return (
       <OverlayBadge className="absolute bottom-3 left-3 bg-destructive text-white">
         <XCircle aria-hidden />
-        {STATUS_LABEL.rejected}
+        {t.status.rejected}
       </OverlayBadge>
     );
   }
@@ -38,7 +42,7 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
     return (
       <OverlayBadge className="absolute bottom-3 left-3 bg-primary text-primary-foreground">
         <Check aria-hidden />
-        {meetup.viewer.isOrganizer ? "Ти організатор" : "Ти йдеш"}
+        {meetup.viewer.isOrganizer ? t.card.youOrganize : t.card.youGo}
       </OverlayBadge>
     );
   }
@@ -50,6 +54,7 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
  * відкрити її може лише адмін (isAdmin), він же видаляє будь-яку подію просто з картки.
  */
 export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmin?: boolean }) {
+  const { locale, t } = useT();
   const inactive = meetup.isPast;
   const openable = !inactive || isAdmin;
   // Непідтверджену подію друг усе одно не відкриє.
@@ -79,7 +84,7 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
           <OverlayBadge>
             <CalendarDays aria-hidden />
             <span>
-              {formatDayLabel(meetup.startsAt)}, {formatTime(meetup.startsAt)}
+              {formatDayLabel(meetup.startsAt, locale)}, {formatTime(meetup.startsAt)}
             </span>
           </OverlayBadge>
           <OverlayBadge className={cn(meetup.isFull && !inactive && "text-destructive")}>
@@ -112,7 +117,7 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
 
         {meetup.status === "rejected" && meetup.rejectReason && !inactive && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            Причина: {meetup.rejectReason}
+            {t.common.reason(meetup.rejectReason)}
           </p>
         )}
 
@@ -122,7 +127,7 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
           <div className="flex min-w-0 items-center gap-2">
             <PersonAvatar person={meetup.organizer} />
             <span className="truncate text-xs text-muted-foreground">
-              Організатор:{" "}
+              {t.card.organizer}{" "}
               <span className="font-medium text-primary">{meetup.organizer.firstName}</span>
             </span>
           </div>

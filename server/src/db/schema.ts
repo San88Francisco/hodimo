@@ -54,6 +54,13 @@ export const users = pgTable("users", {
   photoUrl: text("photo_url"),
   role: userRole("role").notNull().default("user"),
   isBlocked: boolean("is_blocked").notNull().default(false),
+  /**
+   * Бот може писати людині: дозволила в Mini App (allows_write_to_pm / requestWriteAccess).
+   * Скидається, коли Telegram відповів 403 (людина заблокувала бота).
+   */
+  botAccess: boolean("bot_access").notNull().default(false),
+  /** Анонси нових подій (вимикається в профілі). Нагадування про свої події — завжди. */
+  notifyNewMeetups: boolean("notify_new_meetups").notNull().default(true),
   ...timestamps,
 }).enableRLS();
 
@@ -93,6 +100,10 @@ export const meetups = pgTable(
     status: meetupStatus("status").notNull().default("pending"),
     /** Пояснення адміна при відхиленні — бачить лише автор. */
     rejectReason: text("reject_reason"),
+    /** Коли розіслали анонс; null — ще ні. Кожну подію анонсуємо лише раз. */
+    announcedAt: timestamp("announced_at", { withTimezone: true }),
+    /** Коли учасникам нагадали «завтра»; null — ще ні. */
+    remindedAt: timestamp("reminded_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [
@@ -125,6 +136,22 @@ export const meetupParticipants = pgTable(
   (table) => [
     primaryKey({ columns: [table.meetupId, table.userId] }),
     index("meetup_participants_user_idx").on(table.userId),
+  ],
+).enableRLS();
+
+/** Кожне відкриття Mini App (для аналітики адміна). Пишемо при вході, а не на кожен запит. */
+export const appVisits = pgTable(
+  "app_visits",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** auth_date з initData: у кожного запуску свій, тож повтори того самого входу не дублюються. */
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.openedAt] }),
+    index("app_visits_opened_at_idx").on(table.openedAt),
   ],
 ).enableRLS();
 

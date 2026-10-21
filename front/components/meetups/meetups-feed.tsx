@@ -4,10 +4,11 @@ import { CalendarX2 } from "lucide-react";
 import { FilterChips } from "@/components/meetups/filter-chips";
 import { MeetupCard } from "@/components/meetups/meetup-card";
 import { buttonVariants } from "@/components/ui/button";
+import { getT } from "@/lib/i18n/server";
 import type { Category, FeedFilter, Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-export function MeetupsFeed({
+export async function MeetupsFeed({
   meetups,
   filter,
   categories,
@@ -21,6 +22,7 @@ export function MeetupsFeed({
   /** Адмін відкриває й видаляє будь-яку подію, зокрема завершену. */
   isAdmin: boolean;
 }) {
+  const { t } = await getT();
   return (
     <>
       <div className="sticky top-14 z-20 -mt-px bg-background/85 py-3 backdrop-blur-md lg:static lg:bg-transparent lg:py-0 lg:backdrop-blur-none">
@@ -36,19 +38,17 @@ export function MeetupsFeed({
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-card px-6 py-14 text-center ring-1 ring-white/5">
           <CalendarX2 className="size-8 text-muted-foreground" aria-hidden />
-          <p className="text-sm font-medium">Тут поки порожньо</p>
+          <p className="text-sm font-medium">{t.feed.emptyTitle}</p>
           <p className="max-w-xs text-sm text-muted-foreground">
-            {filter.kind === "all"
-              ? "Ще ніхто нічого не запланував."
-              : "За цим фільтром подій немає. Спробуй інший."}
-            {canCreate && " Збери свою компанію!"}
+            {filter.kind === "all" ? t.feed.emptyAll : t.feed.emptyFiltered}
+            {canCreate && t.feed.emptyCta}
           </p>
           {canCreate && (
             <Link
               href="/meetups/new"
               className={cn(buttonVariants({ size: "lg" }), "mt-2 h-10 rounded-full px-5 font-semibold")}
             >
-              Створити подію
+              {t.common.createMeetup}
             </Link>
           )}
         </div>

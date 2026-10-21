@@ -7,12 +7,15 @@ const TelegramUserSchema = z.object({
   last_name: z.string().optional(),
   username: z.string().optional(),
   photo_url: z.string().optional(),
+  /** true — людина дозволила боту писати їй першим. */
+  allows_write_to_pm: z.boolean().optional(),
 });
 
 export type TelegramUser = z.infer<typeof TelegramUserSchema>;
 
 export type InitDataResult =
-  | { ok: true; user: TelegramUser }
+  /** authDate — момент запуску Mini App (секунди Unix): у кожного відкриття свій. */
+  | { ok: true; user: TelegramUser; authDate: number }
   | { ok: false; reason: string };
 
 function secretKey(botToken: string) {
@@ -63,7 +66,7 @@ export function validateInitData(
   const user = TelegramUserSchema.safeParse(userJson);
   if (!user.success) return { ok: false, reason: "Некоректне поле user" };
 
-  return { ok: true, user: user.data };
+  return { ok: true, user: user.data, authDate };
 }
 
 /** Підписує initData так само, як Telegram. Лише для локальної розробки. */

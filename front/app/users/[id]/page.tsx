@@ -6,22 +6,16 @@ import { CalendarHeart, Plus, ShieldCheck, Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { MeetupCard } from "@/components/meetups/meetup-card";
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
+import { NotificationSettings } from "@/components/notifications/notifications";
 import { buttonVariants } from "@/components/ui/button";
 import { getMe, getProfile, listMeetups } from "@/lib/api";
-import {
-  accessOf,
-  canCreateMeetups,
-  formatLongDate,
-  fullName,
-  plural,
-  ROLE_LABEL,
-  type Meetup,
-} from "@/lib/meetups";
+import { getT } from "@/lib/i18n/server";
+import { accessOf, canCreateMeetups, formatLongDate, fullName, type Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({ params }: PageProps<"/users/[id]">): Promise<Metadata> {
-  const profile = await getProfile((await params).id);
-  return { title: profile ? `${fullName(profile)} — Ходімо` : "Користувача не знайдено" };
+  const [profile, { t }] = await Promise.all([getProfile((await params).id), getT()]);
+  return { title: profile ? `${fullName(profile)} — Ходімо` : t.profile.notFound };
 }
 
 function Stat({
@@ -77,7 +71,7 @@ function MeetupSection({
 
 export default async function ProfilePage({ params }: PageProps<"/users/[id]">) {
   const { id } = await params;
-  const [profile, me] = await Promise.all([getProfile(id), getMe()]);
+  const [profile, me, { t, locale }] = await Promise.all([getProfile(id), getMe(), getT()]);
   if (!profile) notFound();
 
   const access = accessOf(me);
@@ -96,8 +90,8 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader
-        title={profile.isSelf ? "Мій профіль" : "Профіль"}
-        back={{ href: "/", label: "Усі події" }}
+        title={profile.isSelf ? t.common.myProfile : t.profile.title}
+        back={{ href: "/", label: t.common.allMeetups }}
       />
 
       <section className="flex flex-col items-center gap-4 rounded-2xl bg-card p-6 text-center ring-1 ring-white/5 sm:flex-row sm:text-left">
@@ -115,17 +109,17 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
           <div className="mt-1 flex flex-wrap justify-center gap-1.5 sm:justify-start">
             {profile.role !== "user" && (
               <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {ROLE_LABEL[profile.role]}
+                {t.roles[profile.role]}
               </span>
             )}
             {profile.isBlocked && (
               <span className="rounded-full bg-destructive/15 px-2.5 py-0.5 text-xs font-medium text-destructive">
-                Заблоковано
+                {t.common.blocked}
               </span>
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            З нами з {formatLongDate(profile.createdAt)}
+            {t.profile.since(formatLongDate(profile.createdAt, locale))}
             {profile.telegramId !== null && ` · Telegram ID ${profile.telegramId}`}
           </p>
         </div>
@@ -135,22 +129,16 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
         <Stat
           icon={CalendarHeart}
           value={profile.stats.organized}
-          label={plural(profile.stats.organized, [
-            "подія організована",
-            "події організовано",
-            "подій організовано",
-          ])}
+          label={t.profile.organized(profile.stats.organized)}
         />
         <Stat
           icon={Users}
           value={profile.stats.joined}
-          label={plural(profile.stats.joined, [
-            "долучення до події",
-            "долучення до подій",
-            "долучень до подій",
-          ])}
+          label={t.profile.joined(profile.stats.joined)}
         />
       </div>
+
+      {profile.isSelf && me && !me.isBlocked && <NotificationSettings me={me} />}
 
       {access === "admin" && !profile.isSelf && (
         <Link
@@ -158,42 +146,42 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
           className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "h-11 w-fit rounded-full px-4")}
         >
           <ShieldCheck aria-hidden />
-          Керувати в адмінці
+          {t.profile.manage}
         </Link>
       )}
 
       <MeetupSection
-        title={profile.isSelf ? "Мої події" : "Організовує"}
+        title={profile.isSelf ? t.profile.myMeetups : t.profile.organizes}
         meetups={organized.items}
         empty={
           profile.isSelf ? (
             <div className="flex flex-col items-center gap-3">
-              <p>Поки що жодної події. Нову подію спершу перевірить адмін — і тоді її побачать усі.</p>
+              <p>{t.profile.emptyMine}</p>
               {canCreate && (
                 <Link
                   href="/meetups/new"
                   className={cn(buttonVariants({ size: "lg" }), "h-10 rounded-full px-5 font-semibold")}
                 >
                   <Plus aria-hidden />
-                  Створити подію
+                  {t.common.createMeetup}
                 </Link>
               )}
             </div>
           ) : (
-            "Найближчих подій немає."
+            t.profile.emptyOther
           )
         }
       />
 
       {joined && (
         <MeetupSection
-          title="Я йду"
+          title={t.profile.going}
           meetups={joined.items}
           empty={
             <>
-              Поки що ти нікуди не йдеш.{" "}
+              {t.profile.goingEmpty}{" "}
               <Link href="/" className="text-primary underline-offset-4 hover:underline">
-                Подивитися події
+                {t.profile.browse}
               </Link>
             </>
           }
@@ -203,7 +191,7 @@ export default async function ProfilePage({ params }: PageProps<"/users/[id]">) 
       {past.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold tracking-tight">
-            Історія <span className="text-muted-foreground tabular-nums">{past.length}</span>
+            {t.profile.history} <span className="text-muted-foreground tabular-nums">{past.length}</span>
           </h2>
           <div className="grid gap-4 lg:grid-cols-2">
             {past.map((meetup) => (

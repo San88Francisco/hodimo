@@ -3,11 +3,13 @@
 import { MessagesSquare } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 import { openExternal } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
 
 /** Кнопка «Приєднатися до групи». Поза Telegram — звичайне посилання. */
 export function GroupLink({ href, className }: { href: string; className?: string }) {
+  const { t } = useT();
   function onClick(event: React.MouseEvent<HTMLAnchorElement>) {
     if (!window.Telegram?.WebApp?.initData) return;
     event.preventDefault();
@@ -27,7 +29,7 @@ export function GroupLink({ href, className }: { href: string; className?: strin
       )}
     >
       <MessagesSquare className="text-primary" aria-hidden />
-      Приєднатися до групи
+      {t.meetup.joinGroup}
     </a>
   );
 }

@@ -8,6 +8,21 @@ export function isTelegramLink(url: string) {
   }
 }
 
+/** Чи можна попросити дозвіл на повідомлення від бота (лише в Telegram, Bot API 6.9+). */
+export function canRequestWriteAccess() {
+  const webApp = window.Telegram?.WebApp;
+  return Boolean(webApp?.initData && webApp.requestWriteAccess && webApp.isVersionAtLeast?.("6.9"));
+}
+
+/** Показує системний діалог Telegram; true — людина дозволила (або вже дозволяла раніше). */
+export function requestWriteAccess(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const webApp = window.Telegram?.WebApp;
+    if (!webApp?.requestWriteAccess) return resolve(false);
+    webApp.requestWriteAccess(resolve);
+  });
+}
+
 /**
  * Відкриває посилання поза застосунком. У Mini App t.me відкриває сам Telegram (інакше частина
  * клієнтів кидає у браузер), решту — зовнішній браузер чи застосунок. Поза Telegram — нова вкладка.

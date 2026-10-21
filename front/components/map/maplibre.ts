@@ -68,6 +68,43 @@ const PAINT_PREFIXES: Record<string, string[]> = {
 /** 3D-будинків у Google на звичайній мапі немає, а нахил у нас вимкнено. */
 const DROP_LAYERS = new Set(["building-3d"]);
 
+/*
+ * Оглядовий шар. Коли швидко віддаляєш карту (на телефоні щипком — за долю секунди на кілька
+ * рівнів), тайлів нового зуму ще немає, а запасними MapLibre бере лише вже завантажені —
+ * тож довкола місця, де стояли, лишалось порожнє полотно. Тому ті самі тайли з maxzoom 10
+ * (один-два на весь екран) вантажимо одразу й малюємо під картою воду, парки й великі
+ * дороги: поки деталі довантажуються, видно обриси міста. Ближче 14-го зуму шар гасне —
+ * там його спрощена геометрія розходилась би з детальною.
+ */
+const OVERVIEW_SOURCE = "overview";
+const OVERVIEW_LAYERS =
+  /^(park|landcover_(wood|grass)|landuse_residential|water|road_(motorway|trunk_primary|secondary_tertiary)(_casing)?)$/;
+const OVERVIEW_FADE = ["interpolate", ["linear"], ["zoom"], 14, 1, 15.5, 0];
+
+function withOverview(spec: StyleSpecification): StyleSpecification {
+  const main = spec.sources.openmaptiles;
+  if (main?.type !== "vector") return spec;
+  const overview = spec.layers
+    .filter((layer) => OVERVIEW_LAYERS.test(layer.id))
+    .map(
+      (layer) =>
+        ({
+          ...layer,
+          id: `${OVERVIEW_SOURCE}_${layer.id}`,
+          source: OVERVIEW_SOURCE,
+          paint: { ...layer.paint, [`${layer.type}-opacity`]: OVERVIEW_FADE },
+        }) as typeof layer,
+    );
+  // Одразу під першим шаром з даними — над фоном, під усією детальною картою.
+  const index = spec.layers.findIndex((layer) => layer.id === "park");
+  if (index < 0) return spec;
+  return {
+    ...spec,
+    sources: { ...spec.sources, [OVERVIEW_SOURCE]: { ...main, maxzoom: 10 } },
+    layers: [...spec.layers.slice(0, index), ...overview, ...spec.layers.slice(index)],
+  };
+}
+
 let style: Promise<StyleSpecification> | undefined;
 
 export function loadStyle(): Promise<StyleSpecification> {
@@ -88,6 +125,7 @@ export function loadStyle(): Promise<StyleSpecification> {
           return { ...layer, paint: { ...layer.paint, ...paint } } as typeof layer;
         }),
     }))
+    .then(withOverview)
     .catch((error: unknown) => {
       style = undefined;
       throw error;

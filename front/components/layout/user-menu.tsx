@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { ChevronRight, ShieldCheck, User, UserRound, Wrench } from "lucide-react";
 
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { PersonAvatar } from "@/components/meetups/meetup-cover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useT } from "@/lib/i18n/client";
 import { accessOf, type Access, type Me } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-const ROLE: Record<Access, { label: string; tone: string }> = {
-  guest: { label: "Гість", tone: "bg-secondary text-muted-foreground" },
-  user: { label: "Користувач", tone: "bg-secondary text-foreground" },
-  admin: { label: "Адмін", tone: "bg-primary/15 text-primary" },
-  blocked: { label: "Заблоковано", tone: "bg-destructive/15 text-destructive" },
+const ROLE_TONE: Record<Access, string> = {
+  guest: "bg-secondary text-muted-foreground",
+  user: "bg-secondary text-foreground",
+  admin: "bg-primary/15 text-primary",
+  blocked: "bg-destructive/15 text-destructive",
 };
 
 function MenuLink({
@@ -39,13 +41,15 @@ function MenuLink({
 /** Аватар у шапці: показує, хто зайшов, і відкриває картку профілю. */
 export function UserMenu({ me }: { me: Me | null }) {
   const access = accessOf(me);
-  const role = ROLE[access];
+  const { t } = useT();
+  const roleLabel =
+    access === "guest" ? t.common.guest : access === "blocked" ? t.common.blocked : t.roles[access];
   const isDev = process.env.NODE_ENV === "development";
 
   return (
     <Popover>
       <PopoverTrigger
-        aria-label={me ? `Профіль: ${me.firstName}` : "Профіль гостя"}
+        aria-label={me ? t.nav.profileOf(me.firstName) : t.nav.guestProfile}
         className="grid size-9 shrink-0 place-items-center rounded-full outline-none ring-2 ring-transparent transition-shadow focus-visible:ring-ring data-popup-open:ring-primary"
       >
         {me ? (
@@ -72,7 +76,7 @@ export function UserMenu({ me }: { me: Me | null }) {
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-semibold">
-              {me ? [me.firstName, me.lastName].filter(Boolean).join(" ") : "Гість"}
+              {me ? [me.firstName, me.lastName].filter(Boolean).join(" ") : t.common.guest}
             </p>
             {me?.username && (
               <a
@@ -84,35 +88,36 @@ export function UserMenu({ me }: { me: Me | null }) {
             )}
             {me && (
               <span
-                className={cn("mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium", role.tone)}
+                className={cn("mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium", ROLE_TONE[access])}
               >
-                {role.label}
+                {roleLabel}
               </span>
             )}
           </div>
         </div>
 
         {access === "guest" && (
-          <p className="px-1 text-sm leading-relaxed text-muted-foreground">
-            Відкрий застосунок у Telegram, щоб записуватись і створювати події.
-          </p>
+          <p className="px-1 text-sm leading-relaxed text-muted-foreground">{t.access.openInTelegram}</p>
         )}
         {access === "blocked" && (
-          <p className="px-1 text-sm leading-relaxed text-muted-foreground">
-            Ти можеш переглядати події, але не записуватись і не створювати.
-          </p>
+          <p className="px-1 text-sm leading-relaxed text-muted-foreground">{t.access.blockedViewOnly}</p>
         )}
+
+        <div className="flex items-center justify-between gap-3 px-1">
+          <span className="text-sm text-muted-foreground">{t.language.label}</span>
+          <LanguageSwitcher />
+        </div>
 
         {(me || isDev) && (
           <nav className="flex flex-col border-t border-border pt-2">
             {me && (
               <MenuLink href={`/users/${me.id}`} icon={UserRound}>
-                Мій профіль
+                {t.common.myProfile}
               </MenuLink>
             )}
             {access === "admin" && (
               <MenuLink href="/admin/moderation" icon={ShieldCheck}>
-                Адмінка
+                {t.common.admin}
               </MenuLink>
             )}
             {isDev && (

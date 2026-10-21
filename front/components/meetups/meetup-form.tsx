@@ -16,9 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { isGoogleShareLink, normalizeImageUrl } from "@/lib/image-url";
 import {
   formatDayKey,
+  formatRelativeDay,
+  formatWeekday,
   fromDateTimeInputs,
   isoWeekday,
   localDayKey,
@@ -29,51 +34,49 @@ import {
 } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-const FormSchema = z
-  .object({
-    categoryId: z.string().min(1, "Обери, що плануєш"),
-    title: z.string().trim().min(3, "Мінімум 3 символи").max(80, "Максимум 80 символів"),
-    date: z.string().min(1, "Обери день"),
-    time: z.string().min(1, "Вкажи час"),
-    place: z.string().trim().min(2, "Де зустрічаємось?").max(120, "Максимум 120 символів"),
-    city: z.string().trim().min(2, "Вкажи місто").max(80, "Максимум 80 символів"),
-    capacity: z
-      .number({ error: "Вкажи число" })
-      .int("Ціле число")
-      .min(2, "Мінімум 2")
-      .max(100, "Максимум 100")
-      // null — без обмежень.
-      .nullable(),
-    description: z.string().trim().max(1000, "Максимум 1000 символів"),
-    location: z.object({ lat: z.number(), lng: z.number() }).nullable(),
-    imageUrl: z.union([
-      z.literal(""),
-      z
-        .url({ protocol: /^https?$/, error: "Встав посилання, що починається з https://" })
-        .refine((value) => !isGoogleShareLink(value), "За цим посиланням Google не знайшлося картинки"),
-    ]),
-    groupUrl: z.union([
-      z.literal(""),
-      z
-        .url({ protocol: /^https$/, error: "Встав посилання, що починається з https://" })
-        .max(300, "Максимум 300 символів"),
-    ]),
-  })
-  .superRefine((value, ctx) => {
-    if (value.date && value.time) {
-      const startsAt = new Date(fromDateTimeInputs(value.date, value.time));
-      if (startsAt.getTime() <= Date.now()) {
-        ctx.addIssue({ code: "custom", path: ["time"], message: "Цей час уже минув" });
+/** Схема з повідомленнями мовою інтерфейсу. */
+function makeSchema({ form: { errors: e } }: Dictionary) {
+  return z
+    .object({
+      categoryId: z.string().min(1, e.category),
+      title: z.string().trim().min(3, e.min(3)).max(80, e.max(80)),
+      date: z.string().min(1, e.day),
+      time: z.string().min(1, e.time),
+      place: z.string().trim().min(2, e.place).max(120, e.max(120)),
+      city: z.string().trim().min(2, e.city).max(80, e.max(80)),
+      capacity: z
+        .number({ error: e.number })
+        .int(e.integer)
+        .min(2, e.minPeople(2))
+        .max(100, e.maxPeople(100))
+        // null — без обмежень.
+        .nullable(),
+      description: z.string().trim().max(1000, e.max(1000)),
+      location: z.object({ lat: z.number(), lng: z.number() }).nullable(),
+      imageUrl: z.union([
+        z.literal(""),
+        z
+          .url({ protocol: /^https?$/, error: e.https })
+          .refine((value) => !isGoogleShareLink(value), e.googleNoImage),
+      ]),
+      groupUrl: z.union([z.literal(""), z.url({ protocol: /^https$/, error: e.https }).max(300, e.max(300))]),
+    })
+    .superRefine((value, ctx) => {
+      if (value.date && value.time) {
+        const startsAt = new Date(fromDateTimeInputs(value.date, value.time));
+        if (startsAt.getTime() <= Date.now()) {
+          ctx.addIssue({ code: "custom", path: ["time"], message: e.past });
+        }
       }
-    }
-  });
+    });
+}
 
-type FormValues = z.infer<typeof FormSchema>;
+type FormValues = z.infer<ReturnType<typeof makeSchema>>;
 
 /** Поля API → поля форми (startsAt розбитий на день і час). */
 const API_FIELD: Record<string, keyof FormValues> = { startsAt: "time" };
 
-function defaultsFor(meetup?: Meetup): FormValues {
+function defaultsFor(meetup: Meetup | undefined, defaultCity: string): FormValues {
   if (!meetup) {
     return {
       categoryId: "",
@@ -81,7 +84,7 @@ function defaultsFor(meetup?: Meetup): FormValues {
       date: "",
       time: "19:00",
       place: "",
-      city: "Познань",
+      city: defaultCity,
       capacity: 6,
       description: "",
       location: null,
@@ -104,20 +107,19 @@ function defaultsFor(meetup?: Meetup): FormValues {
 }
 
 /** Швидкий вибір дня: сьогодні, завтра й найближчі вихідні. */
-function useQuickDays() {
+function useQuickDays(locale: Locale) {
   return useMemo(() => {
     const days = [
-      { key: localDayKey(0), label: "Сьогодні" },
-      { key: localDayKey(1), label: "Завтра" },
+      { key: localDayKey(0), label: formatRelativeDay(0, locale) },
+      { key: localDayKey(1), label: formatRelativeDay(1, locale) },
     ];
     for (let offset = 2; offset < 8; offset++) {
       const key = localDayKey(offset);
       const weekday = isoWeekday(key);
-      if (weekday === 6) days.push({ key, label: "Субота" });
-      if (weekday === 7) days.push({ key, label: "Неділя" });
+      if (weekday === 6 || weekday === 7) days.push({ key, label: formatWeekday(key, locale) });
     }
     return days;
-  }, []);
+  }, [locale]);
 }
 
 function Chip({
@@ -169,6 +171,7 @@ function NumberStepper({
   max: number;
   invalid?: boolean;
 }) {
+  const { t } = useT();
   const unlimited = value === null;
   const current = value !== null && Number.isFinite(value) ? value : 6;
   const stepButton =
@@ -183,7 +186,7 @@ function NumberStepper({
     >
       <button
         type="button"
-        aria-label="Менше"
+        aria-label={t.form.less}
         className={stepButton}
         disabled={!unlimited && current <= min}
         onClick={() => onChange(unlimited ? current : Math.max(min, current - 1))}
@@ -208,7 +211,7 @@ function NumberStepper({
       />
       <button
         type="button"
-        aria-label="Більше"
+        aria-label={t.form.more}
         className={stepButton}
         disabled={!unlimited && current >= max}
         onClick={() => onChange(unlimited ? current : Math.min(max, current + 1))}
@@ -232,12 +235,13 @@ function isHttpUrl(value: string) {
 /** Як картинка виглядатиме на картці; підказує, якщо сайт не віддає її. */
 function ImagePreview({ src }: { src: string }) {
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
+  const { t } = useT();
   return (
     <div className="relative mt-1 aspect-video overflow-hidden rounded-xl bg-secondary ring-1 ring-white/5">
       {status !== "error" && (
         <Image
           src={src}
-          alt="Превʼю фото"
+          alt={t.form.previewAlt}
           fill
           unoptimized
           referrerPolicy="no-referrer"
@@ -249,13 +253,13 @@ function ImagePreview({ src }: { src: string }) {
       )}
       {status === "loading" && (
         <span className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
-          Завантажую…
+          {t.form.loading}
         </span>
       )}
       {status === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
           <ImageOff className="size-6" aria-hidden />
-          Не вдалося завантажити. Спробуй інше посилання — саме на картинку, а не на сторінку.
+          {t.form.previewError}
         </div>
       )}
     </div>
@@ -273,8 +277,10 @@ export function MeetupForm({
   submitLabel?: string;
 }) {
   const [pending, startTransition] = useTransition();
-  const quickDays = useQuickDays();
-  const defaults = defaultsFor(meetup);
+  const { locale, t } = useT();
+  const quickDays = useQuickDays(locale);
+  const defaults = defaultsFor(meetup, t.form.defaultCity);
+  const schema = useMemo(() => makeSchema(t), [t]);
   const [customDate, setCustomDate] = useState(
     () => Boolean(defaults.date) && !quickDays.some((day) => day.key === defaults.date),
   );
@@ -288,7 +294,7 @@ export function MeetupForm({
   const [pickerOpen, setPickerOpen] = useState(false);
   const { register, control, handleSubmit, setError, setValue, getValues, formState } =
     useForm<FormValues>({
-      resolver: zodResolver(FormSchema),
+      resolver: zodResolver(schema),
       defaultValues: defaults,
       mode: "onTouched",
     });
@@ -367,7 +373,7 @@ export function MeetupForm({
           render={({ field }) => (
             <Field data-invalid={invalid("categoryId")}>
               <FieldLabel id="category-label" className="text-base">
-                Що плануєш?
+                {t.form.what}
               </FieldLabel>
               <div role="radiogroup" aria-labelledby="category-label" className="flex flex-wrap gap-2">
                 {options.map((category) => (
@@ -388,12 +394,12 @@ export function MeetupForm({
 
         <Field data-invalid={invalid("title")}>
           <FieldLabel htmlFor="title" className="text-base">
-            Назва
+            {t.form.title}
           </FieldLabel>
           <Input
             id="title"
             className={INPUT}
-            placeholder="Наприклад: кава в центрі"
+            placeholder={t.form.titlePlaceholder}
             autoComplete="off"
             enterKeyHint="next"
             aria-invalid={invalid("title")}
@@ -404,7 +410,7 @@ export function MeetupForm({
 
         <Field data-invalid={invalid("date") || invalid("time")}>
           <FieldLabel id="date-label" className="text-base">
-            Коли?
+            {t.form.when}
           </FieldLabel>
           <div role="radiogroup" aria-labelledby="date-label" className="flex flex-wrap gap-2">
             {quickDays.map((day) => (
@@ -433,32 +439,32 @@ export function MeetupForm({
             <Input
               id="time"
               type="time"
-              aria-label="Час"
+              aria-label={t.form.time}
               className={cn(INPUT, "w-36")}
               aria-invalid={invalid("time")}
               {...register("time")}
             />
-            {date && <span className="text-sm text-muted-foreground">{formatDayKey(date)}</span>}
+            {date && <span className="text-sm text-muted-foreground">{formatDayKey(date, locale)}</span>}
           </div>
           <FieldError errors={[errors.date, errors.time]} />
         </Field>
 
         <Field data-invalid={invalid("place") || invalid("city")}>
           <FieldLabel htmlFor="place" className="text-base">
-            Де?
+            {t.form.where}
           </FieldLabel>
           <div className="grid grid-cols-[1fr_8.5rem] gap-2">
             <Input
               id="place"
               className={INPUT}
-              placeholder="Кав'ярня, парк, адреса"
+              placeholder={t.form.placePlaceholder}
               enterKeyHint="next"
               aria-invalid={invalid("place")}
               {...register("place")}
             />
             <Input
               id="city"
-              aria-label="Місто"
+              aria-label={t.form.city}
               className={INPUT}
               aria-invalid={invalid("city")}
               {...register("city")}
@@ -485,7 +491,7 @@ export function MeetupForm({
                         onClick={() => setPickerOpen(true)}
                       >
                         <MapPin aria-hidden />
-                        Змінити точку
+                        {t.form.changePoint}
                       </Button>
                       <Button
                         type="button"
@@ -493,7 +499,7 @@ export function MeetupForm({
                         className="h-10 rounded-full px-4 text-muted-foreground"
                         onClick={() => field.onChange(null)}
                       >
-                        Прибрати
+                        {t.form.removePoint}
                       </Button>
                     </div>
                   </div>
@@ -504,8 +510,8 @@ export function MeetupForm({
                     className="mt-1 flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed border-input text-[15px] font-medium text-muted-foreground outline-none transition-colors hover:border-ring hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     <MapPin className="size-4 text-primary" aria-hidden />
-                    Позначити на карті
-                    <span className="font-normal">— необов&apos;язково</span>
+                    {t.form.markOnMap}
+                    <span className="font-normal">{t.common.optional}</span>
                   </button>
                 )}
                 <LocationPicker
@@ -532,7 +538,7 @@ export function MeetupForm({
           render={({ field }) => (
             <Field data-invalid={invalid("capacity")}>
               <FieldLabel htmlFor="capacity" className="text-base">
-                Скільки людей?
+                {t.form.capacity}
               </FieldLabel>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                 <NumberStepper
@@ -562,7 +568,7 @@ export function MeetupForm({
                   >
                     {field.value === null && <Check className="size-4" strokeWidth={3} />}
                   </span>
-                  Без обмежень
+                  {t.form.unlimited}
                 </label>
               </div>
               <FieldError errors={[errors.capacity]} />
@@ -572,13 +578,13 @@ export function MeetupForm({
 
         <Field data-invalid={invalid("description")}>
           <FieldLabel htmlFor="description" className="text-base">
-            Деталі <span className="font-normal text-muted-foreground">— необов&apos;язково</span>
+            {t.form.details} <span className="font-normal text-muted-foreground">{t.common.optional}</span>
           </FieldLabel>
           <Textarea
             id="description"
             rows={3}
             className="min-h-24 rounded-xl px-3.5 py-3 text-base"
-            placeholder="Що робимо, що взяти з собою"
+            placeholder={t.form.detailsPlaceholder}
             aria-invalid={invalid("description")}
             {...register("description")}
           />
@@ -587,7 +593,7 @@ export function MeetupForm({
 
         <Field data-invalid={invalid("groupUrl")}>
           <FieldLabel htmlFor="groupUrl" className="text-base">
-            Група події <span className="font-normal text-muted-foreground">— необов&apos;язково</span>
+            {t.form.group} <span className="font-normal text-muted-foreground">{t.common.optional}</span>
           </FieldLabel>
           <Input
             id="groupUrl"
@@ -599,16 +605,13 @@ export function MeetupForm({
             aria-invalid={invalid("groupUrl")}
             {...register("groupUrl", { setValueAs: normalizeGroupUrl })}
           />
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Посилання-запрошення в Telegram-групу чи інший чат — на сторінці події з&apos;явиться кнопка
-            «Приєднатися до групи».
-          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t.form.groupHint}</p>
           <FieldError errors={[errors.groupUrl]} />
         </Field>
 
         <Field data-invalid={invalid("imageUrl")}>
           <FieldLabel htmlFor="imageUrl" className="text-base">
-            Фото <span className="font-normal text-muted-foreground">— необов&apos;язково</span>
+            {t.form.photo} <span className="font-normal text-muted-foreground">{t.common.optional}</span>
           </FieldLabel>
           <Input
             id="imageUrl"
@@ -620,21 +623,16 @@ export function MeetupForm({
             aria-invalid={invalid("imageUrl")}
             {...register("imageUrl", { setValueAs: (value: string) => value.trim() })}
           />
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Встав будь-яке посилання: пін з Pinterest, «Поділитися» з Google Картинок, сторінку сайту
-            чи адресу самого зображення — картинку знайдемо самі.
-          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t.form.photoHint}</p>
           {resolvingImage ? (
-            <p className="text-sm text-muted-foreground">Шукаю картинку за посиланням…</p>
+            <p className="text-sm text-muted-foreground">{t.form.resolvingImage}</p>
           ) : checkedLinks[imageUrl] === false ? (
-            <p className="text-sm text-muted-foreground">
-              На цій сторінці картинку не знайшли — спробуй інше посилання або адресу самого зображення.
-            </p>
+            <p className="text-sm text-muted-foreground">{t.form.imageNotFound}</p>
           ) : (
             <FieldError errors={[errors.imageUrl]} />
           )}
           {foundOn && !resolvingImage && checkedLinks[imageUrl] && (
-            <p className="text-xs text-primary">Взяли картинку зі сторінки {foundOn}</p>
+            <p className="text-xs text-primary">{t.form.foundOn(foundOn)}</p>
           )}
           {isHttpUrl(imageUrl) && !resolvingImage && checkedLinks[imageUrl] !== false && (
             <ImagePreview key={imageUrl} src={imageUrl} />
@@ -655,7 +653,7 @@ export function MeetupForm({
           disabled={pending || resolvingImage}
           className="h-12 w-full rounded-full px-6 text-base font-semibold lg:h-11 lg:w-auto lg:text-sm"
         >
-          {pending ? "Зберігаю…" : submitLabel ?? (meetup ? "Зберегти зміни" : "Створити подію")}
+          {pending ? t.common.saving : submitLabel ?? (meetup ? t.form.saveChanges : t.common.createMeetup)}
         </Button>
       </BottomBar>
     </form>

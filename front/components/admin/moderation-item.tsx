@@ -8,6 +8,7 @@ import { moderateMeetup } from "@/app/actions";
 import { MeetupCard } from "@/components/meetups/meetup-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/lib/i18n/client";
 import type { Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { t } = useT();
 
   function decide(decision: "approve" | "reject") {
     setError(null);
@@ -36,7 +38,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
             autoFocus
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Причина (необов'язково) — її побачить автор"
+            placeholder={t.common.rejectReasonPlaceholder}
             maxLength={300}
             className="h-11 rounded-xl text-base"
           />
@@ -48,7 +50,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
               disabled={pending}
               onClick={() => setRejecting(false)}
             >
-              Назад
+              {t.common.back}
             </Button>
             <Button
               variant="destructive"
@@ -57,7 +59,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
               disabled={pending}
               onClick={() => decide("reject")}
             >
-              {pending ? "Відхиляю…" : "Відхилити"}
+              {pending ? t.common.rejecting : t.common.reject}
             </Button>
           </div>
         </div>
@@ -65,7 +67,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
         <div className="flex gap-2">
           <Link
             href={`/meetups/${meetup.id}`}
-            aria-label="Відкрити подію"
+            aria-label={t.admin.openMeetup}
             className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "size-11 shrink-0 rounded-full")}
           >
             <ExternalLink aria-hidden />
@@ -78,7 +80,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
             onClick={() => setRejecting(true)}
           >
             <X aria-hidden />
-            Відхилити
+            {t.common.reject}
           </Button>
           <Button
             size="lg"
@@ -87,7 +89,7 @@ export function ModerationItem({ meetup }: { meetup: Meetup }) {
             onClick={() => decide("approve")}
           >
             <Check aria-hidden />
-            {pending ? "Схвалюю…" : "Схвалити"}
+            {pending ? t.common.approving : t.common.approve}
           </Button>
         </div>
       )}

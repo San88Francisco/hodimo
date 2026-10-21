@@ -1,15 +1,17 @@
 import Link from "next/link";
 
+import { getT } from "@/lib/i18n/server";
 import { DATE_FILTERS, type Category, type FeedFilter } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 /** Фільтри — звичайні посилання, тож стан живе в URL і переживає перезавантаження. */
-export function FilterChips({ value, categories }: { value: FeedFilter; categories: Category[] }) {
+export async function FilterChips({ value, categories }: { value: FeedFilter; categories: Category[] }) {
+  const { t } = await getT();
   const chips = [
-    { key: "all", label: "Усі", href: "/", active: value.kind === "all" },
+    { key: "all", label: t.feed.all, href: "/", active: value.kind === "all" },
     ...DATE_FILTERS.map((item) => ({
       key: item.id,
-      label: item.label,
+      label: t.feed[item.id],
       href: `/?filter=${item.id}`,
       active: value.kind === "date" && value.id === item.id,
     })),
@@ -23,7 +25,7 @@ export function FilterChips({ value, categories }: { value: FeedFilter; categori
 
   return (
     <nav
-      aria-label="Фільтри подій"
+      aria-label={t.feed.filtersLabel}
       className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:px-0"
     >
       {chips.map((chip) => (
