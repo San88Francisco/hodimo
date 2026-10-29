@@ -80,6 +80,7 @@ export const pl: Dictionary = {
   },
   card: {
     finished: "Zakończone",
+    cancelled: "Odwołane",
     youOrganize: "Organizujesz",
     youGo: "Idziesz",
     organizer: "Organizator:",
@@ -101,6 +102,8 @@ export const pl: Dictionary = {
     rejectedTitle: "Odrzucone przez admina.",
     rejectedBody: "Wydarzenie widzisz tylko ty.",
     rejectedFix: "Możesz je poprawić — i znowu trafi do moderacji.",
+    cancelledTitle: "Wydarzenie odwołane.",
+    cancelledBody: "Nie można się już na nie zapisać.",
     fill: "Zapełnienie",
     when: "Kiedy",
     where: "Gdzie",
@@ -122,6 +125,10 @@ export const pl: Dictionary = {
   actions: {
     deleteQuestion: "Usunąć wydarzenie?",
     yesDelete: "Tak, usuń",
+    cancelMeetup: "Odwołaj",
+    cancelQuestion: "Odwołać wydarzenie? Uczestnicy dostaną powiadomienie w Telegramie.",
+    yesCancel: "Tak, odwołaj",
+    cancelReasonPlaceholder: "Powód (opcjonalnie) — zobaczą go uczestnicy",
     fixAndResend: "Popraw i wyślij ponownie",
     blockedCanCancel: "Konto jest zablokowane, ale zapis można anulować",
     cancelling: "Anuluję…",

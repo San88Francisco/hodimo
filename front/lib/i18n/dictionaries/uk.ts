@@ -79,6 +79,7 @@ export const uk = {
   },
   card: {
     finished: "Завершилась",
+    cancelled: "Скасовано",
     youOrganize: "Ти організатор",
     youGo: "Ти йдеш",
     organizer: "Організатор:",
@@ -100,6 +101,8 @@ export const uk = {
     rejectedTitle: "Відхилено адміном.",
     rejectedBody: "Подію бачиш лише ти.",
     rejectedFix: "Можеш виправити її — і вона знову піде на розгляд.",
+    cancelledTitle: "Подію скасовано.",
+    cancelledBody: "Записатися на неї вже не можна.",
     fill: "Заповненість",
     when: "Коли",
     where: "Де",
@@ -121,6 +124,10 @@ export const uk = {
   actions: {
     deleteQuestion: "Видалити подію?",
     yesDelete: "Так, видалити",
+    cancelMeetup: "Скасувати",
+    cancelQuestion: "Скасувати подію? Учасники отримають сповіщення в Telegram.",
+    yesCancel: "Так, скасувати",
+    cancelReasonPlaceholder: "Причина (необов'язково) — її побачать учасники",
     fixAndResend: "Виправити й надіслати знову",
     blockedCanCancel: "Акаунт заблоковано, але скасувати запис можна",
     cancelling: "Скасовую…",

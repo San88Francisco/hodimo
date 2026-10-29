@@ -1,5 +1,17 @@
 const TELEGRAM_HOSTS = new Set(["t.me", "telegram.me"]);
 
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT?.replace(/^@/, "");
+
+/**
+ * Посилання на подію, що відкриває Mini App у Telegram: `t.me/<bot>?startapp=<id>`.
+ * Telegram передасть id як `tgWebAppStartParam`, головна сторінка переведе на подію.
+ * Без імені бота (локально) — звичайна адреса сайту.
+ */
+export function meetupShareLink(meetupId: string) {
+  if (!BOT_USERNAME) return `${window.location.origin}/meetups/${meetupId}`;
+  return `https://t.me/${BOT_USERNAME}?startapp=${meetupId}`;
+}
+
 export function isTelegramLink(url: string) {
   try {
     return TELEGRAM_HOSTS.has(new URL(url).hostname.replace(/^www\./, ""));

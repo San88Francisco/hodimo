@@ -64,6 +64,13 @@
       "when": 1792599058502,
       "tag": "0008_app_visits",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793306472118,
+      "tag": "0009_meetup_cancel",
+      "breakpoints": true
     }
   ]
 }

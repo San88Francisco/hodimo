@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Link2 } from "lucide-react";
 
 import { useT } from "@/lib/i18n/client";
+import { meetupShareLink } from "@/lib/telegram";
 import { cn } from "@/lib/utils";
 
 async function copyText(text: string) {
@@ -36,7 +37,7 @@ export function CopyLinkButton({ meetupId, className }: { meetupId: string; clas
   }, [copied]);
 
   async function copy() {
-    if (await copyText(`${window.location.origin}/meetups/${meetupId}`)) setCopied(true);
+    if (await copyText(meetupShareLink(meetupId))) setCopied(true);
   }
 
   const label = copied ? t.card.linkCopied : t.card.copyLink;

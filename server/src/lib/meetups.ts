@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, lt, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, lt, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, schema } from "@/db";
@@ -8,7 +8,7 @@ import { requireActiveCategory, toCategoryDto } from "@/lib/categories";
 import { env } from "@/lib/env";
 import { resolveImageUrl } from "@/lib/image-resolve";
 import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
-import { announceMeetup } from "@/lib/notifications";
+import { announceMeetup, notifyCancelled, requestMeetupReview } from "@/lib/notifications";
 
 const { categories, meetups, meetupParticipants: participants, users } = schema;
 
@@ -18,6 +18,8 @@ const { categories, meetups, meetupParticipants: participants, users } = schema;
  * - approved — схвалена адміном (події адмінів — одразу); бачать усі, можна записатися;
  * - rejected — відхилена; лишається тільки в історії автора, з причиною. Автор може виправити —
  *   тоді вона знову йде на розгляд.
+ * Схвалену майбутню подію автор (або адмін) може скасувати: вона лишається видимою з позначкою
+ * «скасовано» й причиною, записатися чи змінити її вже не можна, а учасникам пише бот.
  * Подія, час старту якої минув, — «завершена»: з неї нічого не можна зробити, але вона назавжди
  * лишається в історії (стрічка показує лише майбутні).
  * Коли подія вперше стає approved, бот анонсує її (див. notifications.ts).
@@ -70,6 +72,8 @@ export const UpdateMeetupSchema = z
 export const RejectSchema = z.object({
   reason: z.string().trim().max(300, "Максимум 300 символів").optional(),
 });
+
+export const CancelSchema = RejectSchema;
 
 export const ListMeetupsQuerySchema = z.object({
   date: z.enum(["today", "weekend"]).optional(),
@@ -171,6 +175,9 @@ function toDto(row: MeetupRow, viewer: User | null) {
     isFull: meetup.capacity !== null && row.attendeesCount >= meetup.capacity,
     isPast: isPast(meetup.startsAt),
     status: meetup.status,
+    isCancelled: meetup.cancelledAt !== null,
+    /** Причина скасування — усім, щоб учасники знали, що сталося. */
+    cancelReason: meetup.cancelReason,
     /** Причина відхилення — лише автору й адмінам. */
     rejectReason: manage ? meetup.rejectReason : null,
     city: meetup.city,
@@ -251,7 +258,7 @@ export async function getMeetup(id: string, viewer: User | null) {
   if (!row || !canSee(viewer, row.meetup)) throw notFound("Подію не знайдено");
   const dto = toDto(row, viewer);
 
-  const isActive = dto.status === "approved" && !dto.isPast;
+  const isActive = dto.status === "approved" && !dto.isPast && !dto.isCancelled;
   const canSeeParticipants =
     (isActive && !viewer?.isBlocked) ||
     (viewer && !viewer.isBlocked && (dto.viewer.isOrganizer || isAdmin(viewer)));
@@ -302,6 +309,7 @@ export async function createMeetup(user: User, input: z.infer<typeof CreateMeetu
     return meetup!.id;
   });
   if (user.role === "admin") announceMeetup(id);
+  else requestMeetupReview(id);
   return getMeetup(id, user);
 }
 
@@ -324,10 +332,11 @@ async function lockMeetup(tx: Tx, id: string) {
  */
 export async function updateMeetup(user: User, id: string, input: z.infer<typeof UpdateMeetupSchema>) {
   if (input.imageUrl) input = { ...input, imageUrl: await directImage(input.imageUrl) };
-  await db().transaction(async (tx) => {
+  const resubmitted = await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
     if (!canManage(user, meetup.organizerId)) throw forbidden("Редагувати може лише автор події");
     if (isPast(meetup.startsAt)) throw conflict("Подія вже відбулася — її не можна змінити");
+    if (meetup.cancelledAt) throw conflict("Подію скасовано — її не можна змінити");
     if (input.categoryId && input.categoryId !== meetup.categoryId) {
       await requireActiveCategory(input.categoryId);
     }
@@ -344,7 +353,9 @@ export async function updateMeetup(user: User, id: string, input: z.infer<typeof
         ...(resubmit && { status: "pending" as const, rejectReason: null }),
       })
       .where(eq(meetups.id, id));
+    return resubmit;
   });
+  if (resubmitted) requestMeetupReview(id, { resubmitted: true });
   return getMeetup(id, user);
 }
 
@@ -364,6 +375,7 @@ export async function joinMeetup(user: User, id: string) {
   await db().transaction(async (tx) => {
     const { meetup, taken } = await lockMeetup(tx, id);
     if (meetup.status !== "approved") throw conflict("Подія ще на розгляді");
+    if (meetup.cancelledAt) throw conflict("Подію скасовано");
     if (isPast(meetup.startsAt)) throw conflict("Подія вже почалася");
 
     const [already] = await tx
@@ -387,6 +399,24 @@ export async function leaveMeetup(user: User, id: string) {
   await db()
     .delete(participants)
     .where(and(eq(participants.meetupId, id), eq(participants.userId, user.id)));
+  return getMeetup(id, user);
+}
+
+/**
+ * Скасувати схвалену майбутню подію (з необов'язковою причиною). Непідтверджену простіше видалити.
+ * Повторне скасування нічого не робить — і нікому вдруге не пише.
+ */
+export async function cancelMeetup(user: User, id: string, reason?: string) {
+  const meetup = await findMeetup(id);
+  if (!canManage(user, meetup.organizerId)) throw forbidden("Скасувати може лише автор події");
+  if (meetup.status !== "approved") throw conflict("Скасувати можна лише опубліковану подію");
+  if (isPast(meetup.startsAt)) throw conflict("Подія вже відбулася");
+  const [cancelled] = await db()
+    .update(meetups)
+    .set({ cancelledAt: sql`now()`, cancelReason: reason || null })
+    .where(and(eq(meetups.id, id), isNull(meetups.cancelledAt)))
+    .returning({ id: meetups.id });
+  if (cancelled) notifyCancelled(id, user.id);
   return getMeetup(id, user);
 }
 

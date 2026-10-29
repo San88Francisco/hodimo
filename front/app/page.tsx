@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { AccessNotice } from "@/components/layout/access-notice";
@@ -13,9 +14,16 @@ import { getT } from "@/lib/i18n/server";
 import { accessOf, canCreateMeetups, parseFeedFilter } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function Home({ searchParams }: PageProps<"/">) {
+  const params = await searchParams;
+  // Відкрили з посилання t.me/<bot>?startapp=<id> — одразу на подію.
+  const startParam = params.tgWebAppStartParam;
+  if (typeof startParam === "string" && UUID_RE.test(startParam)) redirect(`/meetups/${startParam}`);
+
   const [me, categories, { t }] = await Promise.all([getMe(), listCategories(), getT()]);
-  const { filter, query } = parseFeedFilter(await searchParams, categories);
+  const { filter, query } = parseFeedFilter(params, categories);
   const { items } = await listMeetups(query);
 
   const access = accessOf(me);

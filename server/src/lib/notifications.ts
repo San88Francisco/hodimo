@@ -11,7 +11,9 @@ const { meetups, meetupParticipants: participants, users } = schema;
 /*
  * Сповіщення в Telegram від бота:
  * - анонс — коли подія стає доступною всім (схвалив адмін або створив адмін), один раз;
- * - нагадування «завтра» — щодня за cron усім, хто записався на завтрашні події.
+ * - адмінам — коли подія користувача чекає на розгляд (нова або виправлена після відхилення);
+ * - нагадування «завтра» — щодня за cron усім, хто записався на завтрашні події;
+ * - скасування — учасникам, коли автор (або адмін) скасував подію.
  * Пишемо лише тим, хто дозволив боту (users.bot_access). Коротко: назва, коли, де, картинка й кнопка.
  */
 
@@ -46,11 +48,38 @@ function announcementPost(meetup: Meetup): Post {
   };
 }
 
+function reviewPost(meetup: Meetup, author: string, resubmitted: boolean): Post {
+  return {
+    text: [
+      resubmitted ? "✏️ <b>Подію виправили — знову на розгляді</b>" : "🛎 <b>Нова подія на розгляд</b>",
+      "",
+      `<b>${escapeHtml(meetup.title)}</b>`,
+      `📅 ${dayAndTime(meetup.startsAt)}`,
+      `📍 ${escapeHtml(meetup.place)}`,
+      `👤 ${escapeHtml(author)}`,
+    ].join("\n"),
+    photo: meetup.imageUrl,
+    button: openButton(meetup, "Розглянути"),
+  };
+}
+
 function reminderPost(meetup: Meetup): Post {
   return {
     text: [
       `⏰ Завтра: <b>${escapeHtml(meetup.title)}</b>`,
       `🕙 ${time(meetup.startsAt)} · 📍 ${escapeHtml(meetup.place)}`,
+    ].join("\n"),
+    photo: meetup.imageUrl,
+    button: openButton(meetup, "Відкрити подію"),
+  };
+}
+
+function cancelPost(meetup: Meetup): Post {
+  return {
+    text: [
+      `❌ Скасовано: <b>${escapeHtml(meetup.title)}</b>`,
+      `📅 ${dayAndTime(meetup.startsAt)}`,
+      ...(meetup.cancelReason ? [`💬 ${escapeHtml(meetup.cancelReason)}`] : []),
     ].join("\n"),
     photo: meetup.imageUrl,
     button: openButton(meetup, "Відкрити подію"),
@@ -92,6 +121,7 @@ async function announce(meetupId: string) {
       and(
         eq(meetups.id, meetupId),
         eq(meetups.status, "approved"),
+        isNull(meetups.cancelledAt),
         isNull(meetups.announcedAt),
         gt(meetups.startsAt, sql`now()`),
       ),
@@ -112,6 +142,48 @@ export function announceMeetup(meetupId: string) {
   after(() => announce(meetupId).catch((error) => console.error("notify анонс", error)));
 }
 
+async function requestReview(meetupId: string, resubmitted: boolean) {
+  const [row] = await db()
+    .select({ meetup: meetups, firstName: users.firstName, lastName: users.lastName, username: users.username })
+    .from(meetups)
+    .innerJoin(users, eq(users.id, meetups.organizerId))
+    .where(and(eq(meetups.id, meetupId), eq(meetups.status, "pending")));
+  if (!row) return;
+
+  const name = [row.firstName, row.lastName].filter(Boolean).join(" ");
+  const author = row.username ? `${name} (@${row.username})` : name;
+  const admins = await db()
+    .select({ id: users.id, telegramId: users.telegramId })
+    .from(users)
+    .where(and(reachable, eq(users.role, "admin")));
+  await broadcast(admins, reviewPost(row.meetup, author, resubmitted), `модерація ${meetupId}`);
+}
+
+/** Адмінам — що подія чекає на розгляд (нова або виправлена після відхилення). */
+export function requestMeetupReview(meetupId: string, { resubmitted = false } = {}) {
+  if (!isEnabled()) return;
+  after(() => requestReview(meetupId, resubmitted).catch((error) => console.error("notify модерація", error)));
+}
+
+async function sendCancelled(meetupId: string, cancelledBy: string) {
+  const [meetup] = await db().select().from(meetups).where(eq(meetups.id, meetupId));
+  if (!meetup) return;
+  const recipients = await db()
+    .select({ id: users.id, telegramId: users.telegramId })
+    .from(participants)
+    .innerJoin(users, eq(users.id, participants.userId))
+    .where(and(eq(participants.meetupId, meetupId), ne(users.id, cancelledBy), reachable));
+  await broadcast(recipients, cancelPost(meetup), `скасування ${meetupId}`);
+}
+
+/** Учасникам — що подію скасовано (крім того, хто скасував); після відповіді клієнту. */
+export function notifyCancelled(meetupId: string, cancelledBy: string) {
+  if (!isEnabled()) return;
+  after(() =>
+    sendCancelled(meetupId, cancelledBy).catch((error) => console.error("notify скасування", error)),
+  );
+}
+
 /** Нагадування учасникам подій, що починаються завтра (за місцевим часом). Викликає cron. */
 export async function sendReminders() {
   if (!isEnabled()) return { meetups: 0 };
@@ -122,6 +194,7 @@ export async function sendReminders() {
     .where(
       and(
         eq(meetups.status, "approved"),
+        isNull(meetups.cancelledAt),
         isNull(meetups.remindedAt),
         sql`(${meetups.startsAt} at time zone ${tz})::date = (now() at time zone ${tz})::date + 1`,
       ),

@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { CalendarX, Check, Pencil, Trash2, X } from "lucide-react";
 
-import { moderateMeetup, removeMeetup, setJoined } from "@/app/actions";
+import { cancelMeetup, moderateMeetup, removeMeetup, setJoined } from "@/app/actions";
 import { BottomBar } from "@/components/layout/bottom-bar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,12 @@ const BIG = "h-12 rounded-full text-base font-semibold lg:h-11 lg:text-sm";
 
 /**
  * Нижня панель на сторінці події. Що в ній — залежить від ролі й статусу:
- * гість бачить підказку, користувач записується, автор і адмін редагують і видаляють,
+ * гість бачить підказку, користувач записується, автор і адмін редагують, скасовують і видаляють,
  * а поки подія на розгляді — адмін схвалює або відхиляє її.
  */
 export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Access }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +66,55 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
     );
   }
 
-  // ---------- Завершена (бачить лише адмін): змінити не можна, лише видалити ----------
-  if (meetup.isPast) {
+  // Після успіху сторінка оновиться вже зі скасованою подією — підтвердження зникне саме.
+  if (confirmingCancel && !meetup.isCancelled) {
+    return (
+      <BottomBar className="lg:border-t lg:border-border lg:pt-6">
+        {error && <ErrorLine message={error} />}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">{t.actions.cancelQuestion}</p>
+          <Input
+            autoFocus
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder={t.actions.cancelReasonPlaceholder}
+            maxLength={300}
+            className="h-11 rounded-xl text-base"
+          />
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="lg"
+              className="h-12 rounded-full px-4 lg:h-11"
+              disabled={pending}
+              onClick={() => setConfirmingCancel(false)}
+            >
+              {t.common.back}
+            </Button>
+            <Button
+              variant="destructive"
+              size="lg"
+              className={cn(BIG, "flex-1 px-5 lg:flex-none")}
+              disabled={pending}
+              onClick={() => run(() => cancelMeetup(meetup.id, reason.trim() || undefined))}
+            >
+              {pending ? t.actions.cancelling : t.actions.yesCancel}
+            </Button>
+          </div>
+        </div>
+      </BottomBar>
+    );
+  }
+
+  // ---------- Завершена (бачить лише адмін) або скасована: змінити не можна, лише видалити ----------
+  if (meetup.isPast || meetup.isCancelled) {
     return (
       <BottomBar className="lg:border-t lg:border-border lg:pt-6">
         {error && <ErrorLine message={error} />}
         <div className="flex items-center gap-3">
-          <p className="min-w-0 flex-1 text-sm text-muted-foreground lg:flex-none">{t.meetup.pastTitle}</p>
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground lg:flex-none">
+            {meetup.isPast ? t.meetup.pastTitle : t.meetup.cancelledTitle}
+          </p>
           {viewer.canManage && (
             <Button
               variant="destructive"
@@ -194,6 +237,20 @@ export function MeetupActions({ meetup, access }: { meetup: Meetup; access: Acce
           <Pencil className="size-5 lg:size-4" aria-hidden />
         </Link>
       )}
+      {/* Автору — з підписом; адміну поруч із «Записатися» місця лише на іконку. */}
+      <Button
+        variant="secondary"
+        size="lg"
+        aria-label={viewer.isOrganizer ? undefined : t.actions.cancelMeetup}
+        className={cn(
+          "h-12 shrink-0 rounded-full lg:h-11",
+          viewer.isOrganizer ? "px-4 text-base font-semibold lg:text-sm" : "size-12 lg:size-11",
+        )}
+        onClick={() => setConfirmingCancel(true)}
+      >
+        <CalendarX className="size-5 lg:size-4" aria-hidden />
+        {viewer.isOrganizer && t.actions.cancelMeetup}
+      </Button>
       <Button
         variant="destructive"
         size="lg"

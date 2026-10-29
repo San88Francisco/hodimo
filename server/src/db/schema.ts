@@ -100,6 +100,10 @@ export const meetups = pgTable(
     status: meetupStatus("status").notNull().default("pending"),
     /** Пояснення адміна при відхиленні — бачить лише автор. */
     rejectReason: text("reject_reason"),
+    /** Коли організатор (або адмін) скасував схвалену подію; null — не скасована. */
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    /** Причина скасування — бачать усі. */
+    cancelReason: text("cancel_reason"),
     /** Коли розіслали анонс; null — ще ні. Кожну подію анонсуємо лише раз. */
     announcedAt: timestamp("announced_at", { withTimezone: true }),
     /** Коли учасникам нагадали «завтра»; null — ще ні. */

@@ -80,6 +80,7 @@ export const ru: Dictionary = {
   },
   card: {
     finished: "Завершилось",
+    cancelled: "Отменено",
     youOrganize: "Ты организатор",
     youGo: "Ты идёшь",
     organizer: "Организатор:",
@@ -101,6 +102,8 @@ export const ru: Dictionary = {
     rejectedTitle: "Отклонено админом.",
     rejectedBody: "Событие видишь только ты.",
     rejectedFix: "Можешь исправить его — и оно снова уйдёт на рассмотрение.",
+    cancelledTitle: "Событие отменено.",
+    cancelledBody: "Записаться на него уже нельзя.",
     fill: "Заполненность",
     when: "Когда",
     where: "Где",
@@ -122,6 +125,10 @@ export const ru: Dictionary = {
   actions: {
     deleteQuestion: "Удалить событие?",
     yesDelete: "Да, удалить",
+    cancelMeetup: "Отменить",
+    cancelQuestion: "Отменить событие? Участники получат уведомление в Telegram.",
+    yesCancel: "Да, отменить",
+    cancelReasonPlaceholder: "Причина (необязательно) — её увидят участники",
     fixAndResend: "Исправить и отправить снова",
     blockedCanCancel: "Аккаунт заблокирован, но отменить запись можно",
     cancelling: "Отменяю…",

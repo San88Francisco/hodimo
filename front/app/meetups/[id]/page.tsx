@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
+  CalendarX,
   ChevronRight,
   Clock3,
   History,
@@ -74,7 +75,10 @@ function PastScreen({ meetup, t, locale }: { meetup: Meetup; t: Dictionary; loca
   );
 }
 
-/** Статус модерації — бачать лише автор і адміни (іншим непідтверджена подія недоступна). */
+/**
+ * Скасування — бачать усі. Статус модерації — лише автор і адміни
+ * (іншим непідтверджена подія недоступна).
+ */
 function StatusNotice({ meetup, isAdminView, t }: { meetup: Meetup; isAdminView: boolean; t: Dictionary }) {
   if (meetup.isPast) {
     return (
@@ -84,6 +88,20 @@ function StatusNotice({ meetup, isAdminView, t }: { meetup: Meetup; isAdminView:
           <span className="font-medium text-foreground">{t.meetup.pastNoticeTitle}</span>{" "}
           {t.meetup.pastNoticeBody}
         </p>
+      </div>
+    );
+  }
+  if (meetup.isCancelled) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl bg-destructive/10 p-4 text-sm">
+        <CalendarX className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+        <div className="flex flex-col gap-1 text-muted-foreground">
+          <p>
+            <span className="font-medium text-destructive">{t.meetup.cancelledTitle}</span>{" "}
+            {t.meetup.cancelledBody}
+          </p>
+          {meetup.cancelReason && <p>{t.common.reason(meetup.cancelReason)}</p>}
+        </div>
       </div>
     );
   }
@@ -183,7 +201,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           >
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
-          {meetup.status === "approved" && !meetup.isPast && (
+          {meetup.status === "approved" && !meetup.isPast && !meetup.isCancelled && (
             <CopyLinkButton
               meetupId={meetup.id}
               className="absolute top-[max(env(safe-area-inset-top),0.75rem)] right-3"
@@ -239,7 +257,7 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
           </InfoRow>
         </section>
 
-        {meetup.groupUrl && !meetup.isPast && <GroupLink href={meetup.groupUrl} />}
+        {meetup.groupUrl && !meetup.isPast && !meetup.isCancelled && <GroupLink href={meetup.groupUrl} />}
         {meetup.description && (
           <section className="flex flex-col gap-2">
             <h2 className="text-lg font-semibold tracking-tight">{t.meetup.about}</h2>

@@ -16,7 +16,7 @@ export default async function EditMeetupPage({ params }: PageProps<"/meetups/[id
   const [meetup, categories, { t }] = await Promise.all([getMeetup(id), listCategories(), getT()]);
   if (!meetup) notFound();
   // Редагують лише автор і адміни, і лише поки подія не почалася.
-  if (!meetup.viewer.canManage || meetup.isPast) redirect(`/meetups/${meetup.id}`);
+  if (!meetup.viewer.canManage || meetup.isPast || meetup.isCancelled) redirect(`/meetups/${meetup.id}`);
 
   return (
     <div className="mx-auto max-w-2xl">

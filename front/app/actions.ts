@@ -204,6 +204,14 @@ export async function setJoined(id: string, joined: boolean) {
   return error;
 }
 
+export async function cancelMeetup(id: string, reason?: string) {
+  const error = await attempt(() => api.cancelMeetup(id, reason));
+  revalidatePath("/");
+  revalidatePath(`/meetups/${id}`);
+  revalidatePath("/users/[id]", "page");
+  return error;
+}
+
 // ---------- Модерація ----------
 
 export async function moderateMeetup(id: string, decision: "approve" | "reject", reason?: string) {

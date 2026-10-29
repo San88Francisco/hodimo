@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Check, Clock3, History, MapPin, Users, XCircle } from "lucide-react";
+import { CalendarDays, CalendarX, Check, Clock3, History, MapPin, Users, XCircle } from "lucide-react";
 
 import { CardDeleteButton } from "@/components/meetups/card-delete-button";
 import { CardDescription } from "@/components/meetups/card-description";
@@ -11,7 +11,7 @@ import { useT } from "@/lib/i18n/client";
 import { formatDayLabel, formatTime, type Meetup } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
-/** Стан у нижньому куті обкладинки: завершена → статус модерації → «ти йдеш». */
+/** Стан у нижньому куті обкладинки: завершена → скасована → статус модерації → «ти йдеш». */
 function StateBadge({ meetup }: { meetup: Meetup }) {
   const { t } = useT();
   if (meetup.isPast) {
@@ -19,6 +19,14 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
       <OverlayBadge className="absolute bottom-3 left-3">
         <History aria-hidden />
         {t.card.finished}
+      </OverlayBadge>
+    );
+  }
+  if (meetup.isCancelled) {
+    return (
+      <OverlayBadge className="absolute bottom-3 left-3 bg-destructive text-white">
+        <CalendarX aria-hidden />
+        {t.card.cancelled}
       </OverlayBadge>
     );
   }
@@ -55,8 +63,9 @@ function StateBadge({ meetup }: { meetup: Meetup }) {
  */
 export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmin?: boolean }) {
   const { locale, t } = useT();
-  const inactive = meetup.isPast;
-  const openable = !inactive || isAdmin;
+  // Скасована теж «неактивна» на вигляд, але відкривається: учасники мають побачити причину.
+  const inactive = meetup.isPast || meetup.isCancelled;
+  const openable = !meetup.isPast || isAdmin;
   // Непідтверджену подію друг усе одно не відкриє.
   const shareable = !inactive && meetup.status === "approved";
 

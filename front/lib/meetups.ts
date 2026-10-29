@@ -61,6 +61,10 @@ export type Meetup = {
   /** Час старту вже настав: подія неактивна, лишається лише в історії. */
   isPast: boolean;
   status: MeetupStatus;
+  /** Організатор (або адмін) скасував подію: записатися вже не можна. */
+  isCancelled: boolean;
+  /** Причина скасування — бачать усі. */
+  cancelReason: string | null;
   /** Причина відхилення — приходить лише автору й адмінам. */
   rejectReason: string | null;
   city: string;

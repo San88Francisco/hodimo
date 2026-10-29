@@ -70,6 +70,22 @@ const MESSAGES: Translations = {
     pl: "Edytować może tylko autor wydarzenia",
     en: "Only the event's author can edit it",
   },
+  "Скасувати може лише автор події": {
+    ru: "Отменить может только автор события",
+    pl: "Odwołać może tylko autor wydarzenia",
+    en: "Only the event's author can cancel it",
+  },
+  "Скасувати можна лише опубліковану подію": {
+    ru: "Отменить можно только опубликованное событие",
+    pl: "Odwołać można tylko opublikowane wydarzenie",
+    en: "Only a published event can be cancelled",
+  },
+  "Подію скасовано": { ru: "Событие отменено", pl: "Wydarzenie odwołane", en: "This event has been cancelled" },
+  "Подію скасовано — її не можна змінити": {
+    ru: "Событие отменено — его нельзя изменить",
+    pl: "Wydarzenie odwołane — nie można go zmienić",
+    en: "This event has been cancelled and can't be changed",
+  },
   "Видалити може лише автор події": {
     ru: "Удалить может только автор события",
     pl: "Usunąć może tylko autor wydarzenia",

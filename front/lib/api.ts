@@ -161,6 +161,11 @@ export function deleteMeetup(id: string) {
   return request<void>(`/meetups/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+/** Організатор або адмін скасовує подію — учасникам пише бот. */
+export function cancelMeetup(id: string, reason?: string) {
+  return request<Meetup>(`/meetups/${encodeURIComponent(id)}/cancel`, json("POST", { reason }));
+}
+
 export function joinMeetup(id: string) {
   return request<Meetup>(`/meetups/${encodeURIComponent(id)}/join`, { method: "POST" });
 }
