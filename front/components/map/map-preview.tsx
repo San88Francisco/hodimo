@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { addPin, createMap, type MapInstance } from "@/components/map/maplibre";
+import { addPin, createMap, type MapInstance } from "@/components/map/leaflet";
 import type { GeoPoint } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ export function MapPreview({
     ).then((created) => {
       if (!created) return;
       map = created.map;
-      addPin(created.maplibre, map, { lat, lng });
+      addPin(created.leaflet, map, { lat, lng });
     });
 
     return () => {
@@ -42,7 +42,7 @@ export function MapPreview({
     };
   }, [lat, lng, zoom]);
 
-  // Розмір і форму задає обгортка: maplibre-gl.css перебиває класи Tailwind на самому контейнері.
+  // Розмір і форму задає обгортка: leaflet.css перебиває класи Tailwind на самому контейнері.
   return (
     <div className={cn("overflow-hidden", className)}>
       <div ref={containerRef} className="map-surface size-full" />

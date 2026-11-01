@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { LocateFixed, MapPin, Search, X } from "lucide-react";
 
-import { createMap, PIN_HTML, roundPoint, toLngLat, type MapInstance } from "@/components/map/maplibre";
+import { createMap, PIN_HTML, roundPoint, toLatLng, type MapInstance } from "@/components/map/leaflet";
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_CENTER,
@@ -107,7 +107,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
       if (!initial && city.trim()) {
         findCity(city.trim(), controller.signal)
           .then((place) => {
-            if (place && !touchedRef.current) map.jumpTo({ center: toLngLat(place), zoom: 12 });
+            if (place && !touchedRef.current) map.setView(toLatLng(place), 12, { animate: false });
           })
           .catch(() => {});
       }
@@ -187,7 +187,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
     setResults([]);
     setNothingFound(false);
     (document.activeElement as HTMLElement | null)?.blur();
-    mapRef.current?.flyTo({ center: toLngLat(point), zoom: 16, duration: 800 });
+    mapRef.current?.flyTo(toLatLng(point), 16, { duration: 0.8 });
   }
 
   function locate() {
@@ -197,11 +197,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocating(false);
-        mapRef.current?.flyTo({
-          center: [position.coords.longitude, position.coords.latitude],
-          zoom: 16,
-          duration: 800,
-        });
+        mapRef.current?.flyTo([position.coords.latitude, position.coords.longitude], 16, { duration: 0.8 });
       },
       () => {
         setLocating(false);
@@ -278,7 +274,7 @@ function PickerBody({ initial, city, query: initialQuery, onPick, onClose }: Pic
       </div>
 
       <div className="relative flex-1">
-        {/* Позиціонує обгортка: maplibre-gl.css ставить контейнеру карти position: relative
+        {/* Позиціонує обгортка: Leaflet ставить контейнеру карти position: relative
             поверх класів Tailwind — з absolute на ньому самому карта схлопується до висоти 0. */}
         <div className="absolute inset-0">
           <div ref={containerRef} className="map-surface size-full" />

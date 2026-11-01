@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Map as MapIcon, Navigation, X } from "lucide-react";
 
-import { addPin, createMap, type MapInstance } from "@/components/map/maplibre";
+import { addPin, createMap, type MapInstance } from "@/components/map/leaflet";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/client";
 import { mapsUrl, type GeoPoint } from "@/lib/meetups";
@@ -52,7 +52,7 @@ function LocationMap({ point, label }: { point: GeoPoint; label: string }) {
       (created) => {
         if (!created) return;
         map = created.map;
-        addPin(created.maplibre, map, point);
+        addPin(created.leaflet, map, point);
       },
     );
 
@@ -77,7 +77,7 @@ function LocationMap({ point, label }: { point: GeoPoint; label: string }) {
       </div>
 
       <div className="relative flex-1">
-        {/* Позиціонує обгортка: maplibre-gl.css ставить контейнеру карти position: relative
+        {/* Позиціонує обгортка: Leaflet ставить контейнеру карти position: relative
             поверх класів Tailwind — з absolute на ньому самому карта схлопується до висоти 0. */}
         <div className="absolute inset-0">
           <div ref={containerRef} className="map-surface size-full" />
