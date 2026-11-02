@@ -154,6 +154,30 @@ const MESSAGES: Translations = {
   },
   "Додай емодзі": { ru: "Добавь эмодзи", pl: "Dodaj emoji", en: "Add an emoji" },
 
+  // ---------- Групи ----------
+  "Групу не знайдено": { ru: "Группа не найдена", pl: "Nie znaleziono grupy", en: "Group not found" },
+  "Такої групи немає — обери іншу": {
+    ru: "Такой группы нет — выбери другую",
+    pl: "Nie ma takiej grupy — wybierz inną",
+    en: "This group doesn't exist — pick another one",
+  },
+  "Обери групу": { ru: "Выбери группу", pl: "Wybierz grupę", en: "Pick a group" },
+  "Ця група вже додана": {
+    ru: "Эта группа уже добавлена",
+    pl: "Ta grupa jest już dodana",
+    en: "This group has already been added",
+  },
+  "Потрібне посилання на Telegram-групу (t.me/…)": {
+    ru: "Нужна ссылка на Telegram-группу (t.me/…)",
+    pl: "Potrzebny link do grupy w Telegramie (t.me/…)",
+    en: "A Telegram group link is required (t.me/…)",
+  },
+  "Не вдалося дізнатися назву групи — вкажи її вручну": {
+    ru: "Не удалось узнать название группы — укажи его вручную",
+    pl: "Nie udało się pobrać nazwy grupy — wpisz ją ręcznie",
+    en: "Couldn't get the group name — enter it manually",
+  },
+
   // ---------- Користувачі ----------
   "Користувача не знайдено": { ru: "Пользователь не найден", pl: "Nie znaleziono użytkownika", en: "User not found" },
   "Свою роль і статус змінювати не можна": {

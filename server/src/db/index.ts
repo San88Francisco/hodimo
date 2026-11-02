@@ -23,4 +23,10 @@ export function db(): Db {
   return globalForDb.db;
 }
 
+/** Код помилки Postgres: Drizzle загортає її в DrizzleQueryError, оригінал — у cause. */
+export function pgCode(error: unknown): string | undefined {
+  const err = error as { code?: string; cause?: { code?: string } } | undefined;
+  return err?.code ?? err?.cause?.code;
+}
+
 export { schema };

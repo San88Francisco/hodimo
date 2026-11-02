@@ -74,6 +74,19 @@ export const categories = pgTable("categories", {
   ...timestamps,
 }).enableRLS();
 
+/**
+ * Telegram-групи, від імені яких можна створити подію (додає адмін). Назву й аватар
+ * підтягуємо зі сторінки t.me; видалення групи лише відв'язує її від подій.
+ */
+export const groups = pgTable("groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 80 }).notNull(),
+  /** https://t.me/… — сюди веде клік по групі. */
+  url: text("url").notNull().unique(),
+  photoUrl: text("photo_url"),
+  ...timestamps,
+}).enableRLS();
+
 export const meetups = pgTable(
   "meetups",
   {
@@ -94,6 +107,8 @@ export const meetups = pgTable(
     imageUrl: text("image_url"),
     /** Посилання на чат події (Telegram-група тощо) — кнопка «Приєднатися до групи». */
     groupUrl: text("group_url"),
+    /** Група, яка організовує подію (показуємо на картці); null — від імені автора. */
+    groupId: uuid("group_id").references(() => groups.id, { onDelete: "set null" }),
     organizerId: uuid("organizer_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -115,6 +130,7 @@ export const meetups = pgTable(
     index("meetups_status_idx").on(table.status),
     index("meetups_organizer_idx").on(table.organizerId),
     index("meetups_category_idx").on(table.categoryId),
+    index("meetups_group_idx").on(table.groupId),
     check(
       "meetups_capacity_check",
       sql`${table.capacity} is null or ${table.capacity} between 2 and 100`,
@@ -161,6 +177,7 @@ export const appVisits = pgTable(
 
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
+export type Group = typeof groups.$inferSelect;
 export type Meetup = typeof meetups.$inferSelect;
 export type UserRole = (typeof USER_ROLES)[number];
 export type MeetupStatus = (typeof MEETUP_STATUSES)[number];

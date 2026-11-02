@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AccessNotice } from "@/components/layout/access-notice";
 import { PageHeader } from "@/components/layout/page-header";
 import { MeetupForm } from "@/components/meetups/meetup-form";
-import { getMe, listCategories } from "@/lib/api";
+import { getMe, listCategories, listGroups } from "@/lib/api";
 import { getT } from "@/lib/i18n/server";
 import { accessOf, canCreateMeetups } from "@/lib/meetups";
 
@@ -13,7 +13,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function NewMeetupPage() {
-  const [me, categories, { t }] = await Promise.all([getMe(), listCategories(), getT()]);
+  const [me, categories, groups, { t }] = await Promise.all([
+    getMe(),
+    listCategories(),
+    listGroups(),
+    getT(),
+  ]);
   const access = accessOf(me);
   const canCreate = canCreateMeetups(access);
 
@@ -27,6 +32,7 @@ export default async function NewMeetupPage() {
       {canCreate ? (
         <MeetupForm
           categories={categories}
+          groups={groups}
           // Подію адміна видно одразу; подію користувача спершу перевіряє адмін.
           submitLabel={access === "admin" ? t.common.createMeetup : t.form.submitReview}
         />

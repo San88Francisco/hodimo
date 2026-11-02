@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 
 import { getLocale } from "@/lib/i18n/server";
-import type { Category, Me, Meetup, MeetupPayload, Profile, Role } from "@/lib/meetups";
+import type { Category, Group, Me, Meetup, MeetupPayload, Profile, Role } from "@/lib/meetups";
 import { decodeSession, SESSION_COOKIE } from "@/lib/session";
 
 /** Викликається лише на сервері (Server Components і Server Actions). */
@@ -130,6 +130,26 @@ export function deleteCategory(id: string) {
 
 export function reorderCategories(ids: string[]) {
   return request<{ items: Category[] }>("/categories/order", json("PUT", { ids }));
+}
+
+// ---------- Групи ----------
+
+export const listGroups = cache(async () => {
+  const { items } = await request<{ items: Group[] }>("/groups");
+  return items;
+});
+
+/** Назву (якщо порожня) і аватар API бере зі сторінки t.me. */
+export function createGroup(input: { url: string; name?: string }) {
+  return request<Group>("/groups", json("POST", input));
+}
+
+export function updateGroup(id: string, patch: Partial<Pick<Group, "name" | "url">>) {
+  return request<Group>(`/groups/${encodeURIComponent(id)}`, json("PATCH", patch));
+}
+
+export function deleteGroup(id: string) {
+  return request<void>(`/groups/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 // ---------- Події ----------

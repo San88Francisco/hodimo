@@ -12,6 +12,7 @@ import { BottomBar } from "@/components/layout/bottom-bar";
 import { LocationPicker } from "@/components/map/location-picker";
 import { MapPreview } from "@/components/map/map-preview";
 import { DatePickerChip } from "@/components/meetups/date-picker-chip";
+import { GroupAvatar } from "@/components/meetups/meetup-cover";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import {
   normalizeGroupUrl,
   toDateTimeInputs,
   type Category,
+  type Group,
   type Meetup,
 } from "@/lib/meetups";
 import { cn } from "@/lib/utils";
@@ -39,6 +41,8 @@ function makeSchema({ form: { errors: e } }: Dictionary) {
   return z
     .object({
       categoryId: z.string().min(1, e.category),
+      /** "" — без групи. */
+      groupId: z.string(),
       title: z.string().trim().min(3, e.min(3)).max(80, e.max(80)),
       date: z.string().min(1, e.day),
       time: z.string().min(1, e.time),
@@ -80,6 +84,7 @@ function defaultsFor(meetup: Meetup | undefined, defaultCity: string): FormValue
   if (!meetup) {
     return {
       categoryId: "",
+      groupId: "",
       title: "",
       date: "",
       time: "19:00",
@@ -94,6 +99,7 @@ function defaultsFor(meetup: Meetup | undefined, defaultCity: string): FormValue
   }
   return {
     categoryId: meetup.category.id,
+    groupId: meetup.group?.id ?? "",
     title: meetup.title,
     ...toDateTimeInputs(meetup.startsAt),
     place: meetup.place,
@@ -268,10 +274,13 @@ function ImagePreview({ src }: { src: string }) {
 
 export function MeetupForm({
   categories,
+  groups,
   meetup,
   submitLabel,
 }: {
   categories: Category[];
+  /** Групи, від імені яких можна організувати подію (веде адмін). */
+  groups: Group[];
   meetup?: Meetup;
   /** Напр. «Надіслати на розгляд» для користувача. */
   submitLabel?: string;
@@ -342,13 +351,14 @@ export function MeetupForm({
   }, [imageUrl, checkedLinks, setValue]);
 
   const onSubmit = handleSubmit((values) => {
-    const { date, time, imageUrl, groupUrl, ...rest } = values;
+    const { date, time, imageUrl, groupUrl, groupId, ...rest } = values;
     startTransition(async () => {
       const result = await saveMeetup(meetup?.id ?? null, {
         ...rest,
         startsAt: fromDateTimeInputs(date, time),
         imageUrl: imageUrl || null,
         groupUrl: groupUrl || null,
+        groupId: groupId || null,
       });
       // При успіху action робить redirect, тож далі обробляємо лише помилку.
       if (!result) return;
@@ -391,6 +401,33 @@ export function MeetupForm({
             </Field>
           )}
         />
+
+        {groups.length > 0 && (
+          <Controller
+            control={control}
+            name="groupId"
+            render={({ field }) => (
+              <Field data-invalid={invalid("groupId")}>
+                <FieldLabel id="group-label" className="text-base">
+                  {t.form.organizerGroup} <span className="font-normal text-muted-foreground">{t.common.optional}</span>
+                </FieldLabel>
+                <div role="radiogroup" aria-labelledby="group-label" className="flex flex-wrap gap-2">
+                  <Chip active={field.value === ""} onClick={() => field.onChange("")}>
+                    {t.form.noGroup}
+                  </Chip>
+                  {groups.map((group) => (
+                    <Chip key={group.id} active={field.value === group.id} onClick={() => field.onChange(group.id)}>
+                      <GroupAvatar group={group} className="-ml-2.5 size-7" />
+                      <span className="max-w-48 truncate">{group.name}</span>
+                    </Chip>
+                  ))}
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">{t.form.organizerGroupHint}</p>
+                <FieldError errors={[errors.groupId]} />
+              </Field>
+            )}
+          />
+        )}
 
         <Field data-invalid={invalid("title")}>
           <FieldLabel htmlFor="title" className="text-base">

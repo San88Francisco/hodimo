@@ -1,7 +1,14 @@
 import Image from "next/image";
 
 import { CoverImage } from "@/components/meetups/cover-image";
-import { avatarAccent, categoryGradient, initials, type Meetup, type Person } from "@/lib/meetups";
+import {
+  avatarAccent,
+  categoryGradient,
+  initials,
+  type Group,
+  type Meetup,
+  type Person,
+} from "@/lib/meetups";
 import { cn } from "@/lib/utils";
 
 /** Фото події, а якщо його немає — градієнт категорії з великим емодзі. */
@@ -97,4 +104,9 @@ export function PersonAvatar({
       {initials(person.firstName)}
     </span>
   );
+}
+
+/** Аватар Telegram-групи або кружок з першою літерою назви. */
+export function GroupAvatar({ group, className }: { group: Group; className?: string }) {
+  return <PersonAvatar person={{ id: group.id, firstName: group.name, photoUrl: group.photoUrl }} className={className} />;
 }

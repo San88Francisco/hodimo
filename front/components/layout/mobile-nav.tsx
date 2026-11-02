@@ -14,6 +14,7 @@ import {
   Shapes,
   UserRound,
   Users,
+  UsersRound,
   Wrench,
   X,
 } from "lucide-react";
@@ -76,6 +77,12 @@ export function MobileNav({ me, pendingCount = 0 }: { me: Me | null; pendingCoun
             label: t.nav.categories,
             icon: Shapes,
             active: (p) => p.startsWith("/admin/categories"),
+          },
+          {
+            href: "/admin/groups",
+            label: t.nav.groups,
+            icon: UsersRound,
+            active: (p) => p.startsWith("/admin/groups"),
           },
           {
             href: "/admin/analytics",

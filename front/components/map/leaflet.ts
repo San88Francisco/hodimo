@@ -15,14 +15,13 @@ export function loadLeaflet(): Promise<LeafletLib> {
 }
 
 /*
- * Растрові тайли CARTO Voyager (дані OpenStreetMap) — світла карта, схожа на Google Maps.
- * Карта складається зі звичайних картинок, без WebGL: на телефоні у вебв'ю Telegram векторна
- * карта губила GPU-контекст після швидкого віддалення й наближення і лишалась порожньою.
- * {r} — тайли подвійної щільності на ретіна-екранах.
+ * Растрові тайли OpenStreetMap — без ключа, підписи місцевою мовою. Карта складається зі
+ * звичайних картинок, без WebGL: на телефоні у вебв'ю Telegram векторна карта губила
+ * GPU-контекст після швидкого віддалення й наближення і лишалась порожньою.
+ * (CARTO тепер без ключа замість карти віддає картинку «API KEY REQUIRED».)
  */
-const TILES_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-const ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const TILES_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 /**
  * Карта без кнопок зуму — як звичайна мапа в телефоні (щипок, подвійний тап, коліщатко).
@@ -54,7 +53,6 @@ export async function createMap(
   map.attributionControl.setPrefix(false);
   leaflet
     .tileLayer(TILES_URL, {
-      subdomains: "abcd",
       maxZoom: 19,
       attribution: ATTRIBUTION,
       // Тайли довкола екрана тримаємо довше: швидке віддалення не відкриває порожнє поле.

@@ -47,6 +47,16 @@ export type Category = {
   isArchived: boolean;
 };
 
+/** Telegram-група, від імені якої організовують подію (додає адмін). */
+export type Group = {
+  id: string;
+  name: string;
+  /** https://t.me/… */
+  url: string;
+  /** Аватар групи з Telegram; null — немає. */
+  photoUrl: string | null;
+};
+
 export type Meetup = {
   id: string;
   title: string;
@@ -74,6 +84,8 @@ export type Meetup = {
   imageUrl: string | null;
   /** Чат події (Telegram-група тощо). */
   groupUrl: string | null;
+  /** Група, яка організовує подію; null — від імені автора. */
+  group: Group | null;
   organizer: Person;
   viewer: { isJoined: boolean; isOrganizer: boolean; canManage: boolean };
   /** Активної події — усім; іншої — лише організатору й адмінам, решті null. */
@@ -94,6 +106,7 @@ export type MeetupPayload = {
   imageUrl: string | null;
   location: GeoPoint | null;
   groupUrl: string | null;
+  groupId: string | null;
 };
 
 export type GeoPoint = { lat: number; lng: number };

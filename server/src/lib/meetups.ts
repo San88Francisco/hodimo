@@ -6,11 +6,12 @@ import { MEETUP_STATUSES, type User } from "@/db/schema";
 import { isAdmin } from "@/lib/auth";
 import { requireActiveCategory, toCategoryDto } from "@/lib/categories";
 import { env } from "@/lib/env";
+import { requireGroup, toGroupDto } from "@/lib/groups";
 import { resolveImageUrl } from "@/lib/image-resolve";
 import { conflict, forbidden, notFound, unauthorized } from "@/lib/http";
 import { announceMeetup, notifyCancelled, requestMeetupReview } from "@/lib/notifications";
 
-const { categories, meetups, meetupParticipants: participants, users } = schema;
+const { categories, groups, meetups, meetupParticipants: participants, users } = schema;
 
 /*
  * Життєвий цикл події:
@@ -48,6 +49,8 @@ const meetupFields = {
     .url({ protocol: /^https$/, error: "Посилання має починатися з https://" })
     .max(300, "Максимум 300 символів")
     .nullable(),
+  /** Група-організатор; null — від імені автора. */
+  groupId: z.uuid("Обери групу").nullable(),
 };
 
 export const CreateMeetupSchema = z.object({
@@ -56,6 +59,7 @@ export const CreateMeetupSchema = z.object({
   imageUrl: meetupFields.imageUrl.default(null),
   location: meetupFields.location.default(null),
   groupUrl: meetupFields.groupUrl.default(null),
+  groupId: meetupFields.groupId.default(null),
 });
 
 /** `location` з API → колонки lat/lng; undefined — поле не чіпаємо. */
@@ -150,19 +154,21 @@ function selectMeetups(viewer: User | null) {
     .select({
       meetup: meetups,
       category: categories,
+      group: groups,
       organizer: personFields,
       attendeesCount,
       isJoined: isJoinedBy(viewer?.id),
     })
     .from(meetups)
     .innerJoin(categories, eq(categories.id, meetups.categoryId))
-    .innerJoin(users, eq(users.id, meetups.organizerId));
+    .innerJoin(users, eq(users.id, meetups.organizerId))
+    .leftJoin(groups, eq(groups.id, meetups.groupId));
 }
 
 type MeetupRow = Awaited<ReturnType<typeof selectMeetups>>[number];
 
 function toDto(row: MeetupRow, viewer: User | null) {
-  const { meetup, category, organizer } = row;
+  const { meetup, category, group, organizer } = row;
   const manage = canManage(viewer, meetup.organizerId);
   return {
     id: meetup.id,
@@ -186,6 +192,7 @@ function toDto(row: MeetupRow, viewer: User | null) {
       meetup.lat !== null && meetup.lng !== null ? { lat: meetup.lat, lng: meetup.lng } : null,
     imageUrl: meetup.imageUrl,
     groupUrl: meetup.groupUrl,
+    group: group && toGroupDto(group),
     organizer,
     viewer: {
       isJoined: row.isJoined,
@@ -291,6 +298,7 @@ async function directImage(url: string | null | undefined) {
 /** Подію користувача — на розгляд; подію адміна — одразу всім. */
 export async function createMeetup(user: User, input: z.infer<typeof CreateMeetupSchema>) {
   await requireActiveCategory(input.categoryId);
+  if (input.groupId) await requireGroup(input.groupId);
   const { location, ...fields } = input;
   const imageUrl = (await directImage(fields.imageUrl)) ?? null;
   const id = await db().transaction(async (tx) => {
@@ -340,6 +348,7 @@ export async function updateMeetup(user: User, id: string, input: z.infer<typeof
     if (input.categoryId && input.categoryId !== meetup.categoryId) {
       await requireActiveCategory(input.categoryId);
     }
+    if (input.groupId && input.groupId !== meetup.groupId) await requireGroup(input.groupId);
     if (input.capacity != null && input.capacity < taken) {
       throw conflict(`Уже записалося ${taken} — місць не може бути менше`);
     }

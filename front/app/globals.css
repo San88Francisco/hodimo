@@ -152,14 +152,14 @@
 
 /*
  * Карта (Leaflet). isolate тримає z-index панелей Leaflet (400–1000) всередині; фон — як земля
- * на карті (світлий), щоб поки вантажаться тайли не блимало сірим.
+ * на карті OSM, щоб поки вантажаться тайли не блимало сірим.
  */
 .map-surface {
   isolation: isolate;
 }
 
 .map-surface.leaflet-container {
-  background: #f5f6f7;
+  background: #f2efe9;
   font-family: inherit;
 }
 

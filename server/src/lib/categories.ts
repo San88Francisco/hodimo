@@ -1,7 +1,7 @@
 import { asc, count, eq, max } from "drizzle-orm";
 import { z } from "zod";
 
-import { db, schema } from "@/db";
+import { db, pgCode, schema } from "@/db";
 import type { Category } from "@/db/schema";
 import { conflict, notFound } from "@/lib/http";
 
@@ -51,12 +51,6 @@ export async function requireActiveCategory(id: string) {
   const [category] = await db().select().from(categories).where(eq(categories.id, id));
   if (!category || category.isArchived) throw conflict("Такої категорії немає — обери іншу");
   return category;
-}
-
-/** Drizzle загортає помилку Postgres у DrizzleQueryError, оригінал — у cause. */
-function pgCode(error: unknown): string | undefined {
-  const err = error as { code?: string; cause?: { code?: string } } | undefined;
-  return err?.code ?? err?.cause?.code;
 }
 
 function uniqueNameGuard(error: unknown): never {

@@ -8,7 +8,7 @@ import * as api from "@/lib/api";
 import { isLocale, LOCALE_COOKIE, matchLocale, type Locale } from "@/lib/i18n/config";
 import { getT } from "@/lib/i18n/server";
 import { googleImageTarget, isGoogleShareLink, isGoogleUrl } from "@/lib/image-url";
-import type { Category, Me, Meetup, MeetupPayload } from "@/lib/meetups";
+import type { Category, Group, Me, Meetup, MeetupPayload } from "@/lib/meetups";
 import {
   encodeSession,
   localeCookieOptions,
@@ -247,6 +247,24 @@ export async function removeCategory(id: string) {
 
 export async function reorderCategories(ids: string[]) {
   const error = await attempt(() => api.reorderCategories(ids));
+  revalidatePath("/", "layout");
+  return error;
+}
+
+export async function addGroup(input: { url: string; name?: string }) {
+  const error = await attempt(() => api.createGroup(input));
+  revalidatePath("/", "layout");
+  return error;
+}
+
+export async function editGroup(id: string, patch: Partial<Pick<Group, "name" | "url">>) {
+  const error = await attempt(() => api.updateGroup(id, patch));
+  revalidatePath("/", "layout");
+  return error;
+}
+
+export async function removeGroup(id: string) {
+  const error = await attempt(() => api.deleteGroup(id));
   revalidatePath("/", "layout");
   return error;
 }

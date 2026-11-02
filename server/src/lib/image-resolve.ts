@@ -124,9 +124,8 @@ const decodeEntities = (value: string) =>
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
 
-/** og:image / twitter:image / link rel=image_src — у будь-якому порядку атрибутів. */
-function findPreviewImage(html: string): string | null {
-  const keys = ["og:image:secure_url", "og:image:url", "og:image", "twitter:image", "twitter:image:src"];
+/** Перший непорожній `<meta>` з ключів (за пріоритетом) — у будь-якому порядку атрибутів. */
+export function findMetaContent(html: string, keys: string[]): string | null {
   const metas = html.match(/<meta\b[^>]*>/gi) ?? [];
   for (const key of keys) {
     for (const tag of metas) {
@@ -136,6 +135,19 @@ function findPreviewImage(html: string): string | null {
       if (content) return decodeEntities(content.trim());
     }
   }
+  return null;
+}
+
+/** og:image / twitter:image / link rel=image_src. */
+function findPreviewImage(html: string): string | null {
+  const meta = findMetaContent(html, [
+    "og:image:secure_url",
+    "og:image:url",
+    "og:image",
+    "twitter:image",
+    "twitter:image:src",
+  ]);
+  if (meta) return meta;
   const link = html.match(/<link\b[^>]*rel\s*=\s*["']image_src["'][^>]*>/i)?.[0];
   const href = link?.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
   return href ? decodeEntities(href.trim()) : null;

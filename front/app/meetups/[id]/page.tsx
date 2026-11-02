@@ -15,7 +15,7 @@ import {
 
 import { PageHeader } from "@/components/layout/page-header";
 import { LocationButton } from "@/components/map/location-view";
-import { GroupLink } from "@/components/meetups/group-link";
+import { GroupCard, GroupLink } from "@/components/meetups/group-link";
 import { CopyLinkButton } from "@/components/meetups/copy-link-button";
 import { MeetupActions } from "@/components/meetups/meetup-actions";
 import { MeetupCover, PersonAvatar } from "@/components/meetups/meetup-cover";
@@ -266,6 +266,8 @@ export default async function MeetupPage({ params }: PageProps<"/meetups/[id]">)
             </p>
           </section>
         )}
+
+        {meetup.group && <GroupCard group={meetup.group} />}
 
         <Link
           href={`/users/${meetup.organizer.id}`}

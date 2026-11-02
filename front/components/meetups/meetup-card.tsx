@@ -5,6 +5,7 @@ import { CalendarDays, CalendarX, Check, Clock3, History, MapPin, Users, XCircle
 
 import { CardDeleteButton } from "@/components/meetups/card-delete-button";
 import { CardDescription } from "@/components/meetups/card-description";
+import { GroupBadge } from "@/components/meetups/group-link";
 import { MeetupCover, OverlayBadge, PersonAvatar } from "@/components/meetups/meetup-cover";
 import { CopyLinkButton } from "@/components/meetups/copy-link-button";
 import { useT } from "@/lib/i18n/client";
@@ -133,13 +134,18 @@ export function MeetupCard({ meetup, isAdmin = false }: { meetup: Meetup; isAdmi
         {meetup.description && <CardDescription text={meetup.description} />}
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <PersonAvatar person={meetup.organizer} />
-            <span className="truncate text-xs text-muted-foreground">
-              {t.card.organizer}{" "}
-              <span className="font-medium text-primary">{meetup.organizer.firstName}</span>
-            </span>
-          </div>
+          {/* Подію від групи підписуємо групою: клік відкриває її в Telegram. */}
+          {meetup.group ? (
+            <GroupBadge group={meetup.group} />
+          ) : (
+            <div className="flex min-w-0 items-center gap-2">
+              <PersonAvatar person={meetup.organizer} />
+              <span className="truncate text-xs text-muted-foreground">
+                {t.card.organizer}{" "}
+                <span className="font-medium text-primary">{meetup.organizer.firstName}</span>
+              </span>
+            </div>
+          )}
 
           <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="size-3.5 shrink-0 opacity-70" aria-hidden />
